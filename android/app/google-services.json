@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "645644256889",
+    "project_id": "standin-5755d",
+    "storage_bucket": "standin-5755d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:645644256889:android:a589f682d7cf08188d76a8",
+        "android_client_info": {
+          "package_name": "in.withwells.standin"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB1kiF4l0HAK2oow1wxKPmfxDg8GqdUrDE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

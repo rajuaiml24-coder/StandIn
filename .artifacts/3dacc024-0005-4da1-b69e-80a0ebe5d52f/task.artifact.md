@@ -1,0 +1,8 @@
+- [ ] Update domain and validators in `attendance.dart` and `validators.dart`
+- [ ] Update `OnboardingController` with new steps and state
+- [ ] Create `OrganizationCreatePage`
+- [ ] Create `OrganizationIdPage`
+- [ ] Enhance `OrganizationSearchPage` and `PolicyPreviewPage`
+- [ ] Integrate into `StandInApp` in `app.dart`
+- [ ] Add unit tests for new validators
+- [ ] Final verification: `flutter analyze`, `flutter test`, `flutter build web`
