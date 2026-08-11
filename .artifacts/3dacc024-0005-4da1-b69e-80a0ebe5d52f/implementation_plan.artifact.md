@@ -1,64 +1,46 @@
-# Implementation Plan: PolicyEngine Refinement (Custom Periods & Estimation)
+# Implementation Plan: End-to-End Firebase Integration Test
 
-This plan implements the final corrections to the `PolicyEngine` to support explicit semester dates, holiday calendar awareness, and improved recovery phrasing.
+This plan outlines a comprehensive integration test to verify the full StandIn stack (Drift + Firestore + Sync) under real-world scenarios.
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Custom Period Dates**: Semester and Academic Year periods now **require** `startDate` and `endDate` in the policy. If they are null for these period types, the engine will flag the summary as `isPolicyIncomplete` and return 0 for prospective calculations.
-> **Estimation Flag**: A new `isEstimation` flag in `AttendanceSummary` will indicate if calculations are based on an incomplete future holiday calendar.
-> **Organization Context**: The `PolicyEngine.summarize` method will now require a `bool isHolidayCalendarConfigured` parameter.
+> **Real Data**: This test will interact with the actual `standin-5755d` project. I will use unique, temporary test IDs (e.g., `test_user_xyz`) to avoid pollution.
+> **Environment**: I will attempt to run these tests using `flutter test`. If network or credential issues arise, I will provide a script that can be run in a production-ready environment.
+
+## Test Scenario Breakdown
+
+### 1. Account & Identity
+- **Steps**: Create a new account, generate a unique username, verify uniqueness check, and set up a PIN.
+- **Verification**: Check `usernames` and `users` collections in Firestore.
+
+### 2. Organization & Following
+- **Steps**: Create a test organization, search for it, and "follow" it.
+- **Verification**: Check `organizations` and `users/{uid}/follows` collections.
+
+### 3. Policy & Calendar Resolution
+- **Steps**: Define a policy for the organization and verify that the client resolves it correctly (Hierarchy: Personal -> Scope -> Org).
+- **Verification**: Assert correct `AttendancePolicy` object in `AttendanceController`.
+
+### 4. Attendance & Sync (Local-First)
+- **Scenario A (Online)**: Mark attendance -> Verify Drift write -> Trigger Sync -> Verify Firestore update.
+- **Scenario B (Offline)**: Mark attendance -> Verify Drift write -> Simulate restart -> Trigger Sync -> Verify Firestore.
+- **Scenario C (Conflict)**: Verify that two users following the same org get independent attendance records.
+
+### 5. Security Boundaries
+- **Steps**: Attempt to modify `isAdmin` or another user's attendance record.
+- **Verification**: Confirm that Firestore rules reject the operation with a `PERMISSION_DENIED` error.
 
 ## Proposed Changes
 
-### [Domain & Logic]
-
-#### [MODIFY] [attendance.dart](file:///C:/StandIn/lib/src/domain/attendance.dart)
-- **`AttendancePolicy`**:
-    - Add `startDate` (DateTime?).
-    - Add `endDate` (DateTime?).
-- **`AttendanceSummary`**:
-    - Add `isEstimation` (bool).
-    - Add `recoveryMessage` (String) to house the user-friendly recovery wording.
-
-#### [MODIFY] [policy_engine.dart](file:///C:/StandIn/lib/src/domain/policy_engine.dart)
-- **`summarize`**:
-    - Add `isHolidayCalendarConfigured` parameter.
-    - Update `_getPeriodRange` to use explicit `startDate`/`endDate` for `semester`, `academicYear`, and `halfYear`.
-    - If explicit dates are missing for these types, return an incomplete summary.
-    - Set `isEstimation = !isHolidayCalendarConfigured`.
-- **Message Generation**:
-    - Implement a helper to generate user-friendly recovery text: "Attend the next 6 classes", "Attend the next 3 working days", etc.
-
----
-
-### [Data Layer Compatibility]
-
-#### [MODIFY] [standin_database.dart](file:///C:/StandIn/lib/src/data/local/standin_database.dart)
-- Update `OrganizationPolicyRows` table:
-    - Add `startDate` (dateTime().nullable()).
-    - Add `endDate` (dateTime().nullable()).
-- Update `OrganizationRows` (if exists) or ensure repository can pass `isHolidayCalendarConfigured`.
-
-#### [MODIFY] [organization_policy_repository.dart](file:///C:/StandIn/lib/src/data/organization_policy_repository.dart)
-- Map new `startDate`/`endDate` fields.
-
----
-
-### [Testing]
-
-#### [MODIFY] [policy_engine_test.dart](file:///C:/StandIn/test/policy_engine_test.dart)
-- Add tests for:
-    - Custom semester dates (valid).
-    - Missing semester dates (incomplete result).
-    - `isEstimation` flag when holiday calendar is incomplete.
-    - Verify recovery messages follow the "Attend the next X [units]" pattern.
+#### [NEW] [firebase_integration_e2e_test.dart](file:///C:/StandIn/test/firebase_integration_e2e_test.dart)
+- A specialized test file that orchestrates the above steps using the production `AuthService`, `UserRepository`, `OrganizationRepository`, and `SyncEngine`.
 
 ## Verification Plan
 
-### Automated Tests
-- Run `flutter test test/policy_engine_test.dart`.
-- Run `flutter analyze`.
+### Execution
+- Run `flutter test test/firebase_integration_e2e_test.dart`.
+- Monitor console output for PASS/FAIL on each step.
 
-### Final Build
-- Run `flutter build web` to ensure PWA compatibility.
+### Post-Test Cleanup
+- I will include a cleanup step in the test to delete temporary `test_*` documents if possible (subject to security rules).

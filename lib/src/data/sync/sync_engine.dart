@@ -63,18 +63,18 @@ class SyncEngine {
       await _database.transaction(() async {
         for (final record in delta) {
           final id = attendanceId(record.date, record.organizationId ?? 'unknown', record.scopeId ?? 'global');
-          await _database.upsertAttendance(AttendanceTableCompanion(
-            id: Value(id),
-            orgId: Value(record.organizationId ?? 'unknown'),
-            contextId: Value(record.scopeId ?? 'global'),
-            attendanceDate: Value(record.date),
-            status: Value(record.status.name),
-            actualUnits: Value(record.actualUnits),
-            expectedUnits: Value(record.expectedUnits),
+          await _database.upsertAttendance(AttendanceTableCompanion.insert(
+            id: id,
+            organizationId: record.organizationId ?? 'unknown',
+            scopeId: record.scopeId ?? 'global',
+            attendanceDate: record.date,
+            status: record.status.name,
+            actualUnits: record.actualUnits,
+            expectedUnits: record.expectedUnits,
             policyVersionId: Value(record.policyVersionId),
             calendarVersionId: Value(record.calendarVersionId),
             pendingSync: const Value(false),
-            updatedAt: Value(DateTime.now()),
+            updatedAt: DateTime.now(),
           ));
         }
       });

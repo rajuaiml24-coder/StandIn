@@ -5,8 +5,8 @@ part 'standin_database.g.dart';
 
 class AttendanceTable extends Table {
   TextColumn get id => text()();
-  TextColumn get orgId => text()();
-  TextColumn get contextId => text()();
+  TextColumn get organizationId => text()();
+  TextColumn get scopeId => text()();
   DateTimeColumn get attendanceDate => dateTime()();
   TextColumn get status => text()();
   RealColumn get actualUnits => real()();
@@ -112,10 +112,11 @@ class SyncMetadataRows extends Table {
 @DriftDatabase(tables: [AttendanceTable, OrganizationRows, ScopeRows, FollowRows, MembershipRows, UserProfileRows, OrganizationPolicyRows, SyncQueueRows, SyncMetadataRows])
 class StandInDatabase extends _$StandInDatabase {
   StandInDatabase() : super(driftDatabase(name: 'standin'));
+  StandInDatabase.executor(super.e);
   @override int get schemaVersion => 1;
 
   Stream<List<AttendanceTableData>> watchAttendance(String organizationId) =>
-      (select(attendanceTable)..where((row) => row.orgId.equals(organizationId))..orderBy([(row) => OrderingTerm.desc(row.attendanceDate)])).watch();
+      (select(attendanceTable)..where((row) => row.organizationId.equals(organizationId))..orderBy([(row) => OrderingTerm.desc(row.attendanceDate)])).watch();
 
   Future<void> upsertAttendance(AttendanceTableCompanion row) =>
       into(attendanceTable).insertOnConflictUpdate(row);
@@ -138,11 +139,18 @@ class StandInDatabase extends _$StandInDatabase {
   Future<void> savePolicy(OrganizationPolicyRowsCompanion row) =>
       into(organizationPolicyRows).insertOnConflictUpdate(row);
 
-  Future<OrganizationPolicyRow?> policyAt(String organizationId, DateTime date) =>
-      (select(organizationPolicyRows)..where((row) => row.organizationId.equals(organizationId) & row.effectiveFrom.isSmallerOrEqualValue(date))..orderBy([(row) => OrderingTerm.desc(row.effectiveFrom)])..limit(1)).getSingleOrNull();
+  Future<OrganizationPolicyRow?> policyAt(String organizationId, String scopeId, DateTime date) =>
+      (select(organizationPolicyRows)..where((row) => 
+        row.organizationId.equals(organizationId) & 
+        row.scopeId.equals(scopeId) &
+        row.effectiveFrom.isSmallerOrEqualValue(date)
+      )..orderBy([(row) => OrderingTerm.desc(row.effectiveFrom)])..limit(1)).getSingleOrNull();
 
   Future<OrganizationRow?> getOrganization(String id) =>
       (select(organizationRows)..where((row) => row.id.equals(id))).getSingleOrNull();
+
+  Future<ScopeRow?> getScope(String id) =>
+      (select(scopeRows)..where((row) => row.id.equals(id))).getSingleOrNull();
 
   Future<FollowRow?> getFollow(String id) =>
       (select(followRows)..where((row) => row.id.equals(id))).getSingleOrNull();

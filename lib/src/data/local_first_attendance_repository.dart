@@ -7,27 +7,25 @@ import 'attendance_repository.dart';
 import 'local/standin_database.dart';
 
 class LocalFirstAttendanceRepository implements SyncQueueRepository {
-  LocalFirstAttendanceRepository(this._database, {required this.uid, required String organizationId, required String scopeId})
-      : currentOrgId = organizationId,
-        currentScopeId = scopeId;
+  LocalFirstAttendanceRepository(this._database, {required this.uid, required this.organizationId, required this.scopeId});
         
   final StandInDatabase _database;
   final String uid;
-  final String currentOrgId;
-  final String currentScopeId;
+  final String organizationId;
+  final String scopeId;
 
   @override
-  Stream<List<AttendanceRecord>> watchRecords() => _database.watchAttendance(currentOrgId).map((rows) => rows.map(_toDomain).toList(growable: false));
+  Stream<List<AttendanceRecord>> watchRecords() => _database.watchAttendance(organizationId).map((rows) => rows.map(_toDomain).toList(growable: false));
 
   @override
   Future<void> save(AttendanceRecord record) async {
-    final recordId = attendanceId(record.date, currentOrgId, currentScopeId);
-    final enriched = record.copyWith(organizationId: currentOrgId, scopeId: currentScopeId);
+    final recordId = attendanceId(record.date, organizationId, scopeId);
+    final enriched = record.copyWith(organizationId: organizationId, scopeId: scopeId);
     await _database.transaction(() async {
       await _database.upsertAttendance(AttendanceTableCompanion.insert(
         id: recordId,
-        orgId: currentOrgId,
-        contextId: currentScopeId,
+        organizationId: organizationId,
+        scopeId: scopeId,
         attendanceDate: record.date,
         status: record.status.name,
         actualUnits: record.actualUnits,
@@ -67,8 +65,8 @@ class LocalFirstAttendanceRepository implements SyncQueueRepository {
     status: AttendanceStatus.values.byName(row.status), 
     actualUnits: row.actualUnits, 
     expectedUnits: row.expectedUnits, 
-    organizationId: row.orgId,
-    scopeId: row.contextId,
+    organizationId: row.organizationId,
+    scopeId: row.scopeId,
     policyVersionId: row.policyVersionId,
     calendarVersionId: row.calendarVersionId,
     pendingSync: row.pendingSync

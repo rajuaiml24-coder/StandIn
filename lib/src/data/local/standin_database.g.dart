@@ -14,16 +14,17 @@ class $AttendanceTableTable extends AttendanceTable
   late final GeneratedColumn<String> id = GeneratedColumn<String>(
       'id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _orgIdMeta = const VerificationMeta('orgId');
+  static const VerificationMeta _organizationIdMeta =
+      const VerificationMeta('organizationId');
   @override
-  late final GeneratedColumn<String> orgId = GeneratedColumn<String>(
-      'org_id', aliasedName, false,
+  late final GeneratedColumn<String> organizationId = GeneratedColumn<String>(
+      'organization_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
-  static const VerificationMeta _contextIdMeta =
-      const VerificationMeta('contextId');
+  static const VerificationMeta _scopeIdMeta =
+      const VerificationMeta('scopeId');
   @override
-  late final GeneratedColumn<String> contextId = GeneratedColumn<String>(
-      'context_id', aliasedName, false,
+  late final GeneratedColumn<String> scopeId = GeneratedColumn<String>(
+      'scope_id', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
   static const VerificationMeta _attendanceDateMeta =
       const VerificationMeta('attendanceDate');
@@ -85,8 +86,8 @@ class $AttendanceTableTable extends AttendanceTable
   @override
   List<GeneratedColumn> get $columns => [
         id,
-        orgId,
-        contextId,
+        organizationId,
+        scopeId,
         attendanceDate,
         status,
         actualUnits,
@@ -113,17 +114,19 @@ class $AttendanceTableTable extends AttendanceTable
     } else if (isInserting) {
       context.missing(_idMeta);
     }
-    if (data.containsKey('org_id')) {
+    if (data.containsKey('organization_id')) {
       context.handle(
-          _orgIdMeta, orgId.isAcceptableOrUnknown(data['org_id']!, _orgIdMeta));
+          _organizationIdMeta,
+          organizationId.isAcceptableOrUnknown(
+              data['organization_id']!, _organizationIdMeta));
     } else if (isInserting) {
-      context.missing(_orgIdMeta);
+      context.missing(_organizationIdMeta);
     }
-    if (data.containsKey('context_id')) {
-      context.handle(_contextIdMeta,
-          contextId.isAcceptableOrUnknown(data['context_id']!, _contextIdMeta));
+    if (data.containsKey('scope_id')) {
+      context.handle(_scopeIdMeta,
+          scopeId.isAcceptableOrUnknown(data['scope_id']!, _scopeIdMeta));
     } else if (isInserting) {
-      context.missing(_contextIdMeta);
+      context.missing(_scopeIdMeta);
     }
     if (data.containsKey('attendance_date')) {
       context.handle(
@@ -194,10 +197,10 @@ class $AttendanceTableTable extends AttendanceTable
     return AttendanceTableData(
       id: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
-      orgId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}org_id'])!,
-      contextId: attachedDatabase.typeMapping
-          .read(DriftSqlType.string, data['${effectivePrefix}context_id'])!,
+      organizationId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}organization_id'])!,
+      scopeId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}scope_id'])!,
       attendanceDate: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}attendance_date'])!,
       status: attachedDatabase.typeMapping
@@ -228,8 +231,8 @@ class $AttendanceTableTable extends AttendanceTable
 class AttendanceTableData extends DataClass
     implements Insertable<AttendanceTableData> {
   final String id;
-  final String orgId;
-  final String contextId;
+  final String organizationId;
+  final String scopeId;
   final DateTime attendanceDate;
   final String status;
   final double actualUnits;
@@ -241,8 +244,8 @@ class AttendanceTableData extends DataClass
   final DateTime updatedAt;
   const AttendanceTableData(
       {required this.id,
-      required this.orgId,
-      required this.contextId,
+      required this.organizationId,
+      required this.scopeId,
       required this.attendanceDate,
       required this.status,
       required this.actualUnits,
@@ -256,8 +259,8 @@ class AttendanceTableData extends DataClass
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
     map['id'] = Variable<String>(id);
-    map['org_id'] = Variable<String>(orgId);
-    map['context_id'] = Variable<String>(contextId);
+    map['organization_id'] = Variable<String>(organizationId);
+    map['scope_id'] = Variable<String>(scopeId);
     map['attendance_date'] = Variable<DateTime>(attendanceDate);
     map['status'] = Variable<String>(status);
     map['actual_units'] = Variable<double>(actualUnits);
@@ -279,8 +282,8 @@ class AttendanceTableData extends DataClass
   AttendanceTableCompanion toCompanion(bool nullToAbsent) {
     return AttendanceTableCompanion(
       id: Value(id),
-      orgId: Value(orgId),
-      contextId: Value(contextId),
+      organizationId: Value(organizationId),
+      scopeId: Value(scopeId),
       attendanceDate: Value(attendanceDate),
       status: Value(status),
       actualUnits: Value(actualUnits),
@@ -304,8 +307,8 @@ class AttendanceTableData extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return AttendanceTableData(
       id: serializer.fromJson<String>(json['id']),
-      orgId: serializer.fromJson<String>(json['orgId']),
-      contextId: serializer.fromJson<String>(json['contextId']),
+      organizationId: serializer.fromJson<String>(json['organizationId']),
+      scopeId: serializer.fromJson<String>(json['scopeId']),
       attendanceDate: serializer.fromJson<DateTime>(json['attendanceDate']),
       status: serializer.fromJson<String>(json['status']),
       actualUnits: serializer.fromJson<double>(json['actualUnits']),
@@ -323,8 +326,8 @@ class AttendanceTableData extends DataClass
     serializer ??= driftRuntimeOptions.defaultSerializer;
     return <String, dynamic>{
       'id': serializer.toJson<String>(id),
-      'orgId': serializer.toJson<String>(orgId),
-      'contextId': serializer.toJson<String>(contextId),
+      'organizationId': serializer.toJson<String>(organizationId),
+      'scopeId': serializer.toJson<String>(scopeId),
       'attendanceDate': serializer.toJson<DateTime>(attendanceDate),
       'status': serializer.toJson<String>(status),
       'actualUnits': serializer.toJson<double>(actualUnits),
@@ -339,8 +342,8 @@ class AttendanceTableData extends DataClass
 
   AttendanceTableData copyWith(
           {String? id,
-          String? orgId,
-          String? contextId,
+          String? organizationId,
+          String? scopeId,
           DateTime? attendanceDate,
           String? status,
           double? actualUnits,
@@ -352,8 +355,8 @@ class AttendanceTableData extends DataClass
           DateTime? updatedAt}) =>
       AttendanceTableData(
         id: id ?? this.id,
-        orgId: orgId ?? this.orgId,
-        contextId: contextId ?? this.contextId,
+        organizationId: organizationId ?? this.organizationId,
+        scopeId: scopeId ?? this.scopeId,
         attendanceDate: attendanceDate ?? this.attendanceDate,
         status: status ?? this.status,
         actualUnits: actualUnits ?? this.actualUnits,
@@ -371,8 +374,10 @@ class AttendanceTableData extends DataClass
   AttendanceTableData copyWithCompanion(AttendanceTableCompanion data) {
     return AttendanceTableData(
       id: data.id.present ? data.id.value : this.id,
-      orgId: data.orgId.present ? data.orgId.value : this.orgId,
-      contextId: data.contextId.present ? data.contextId.value : this.contextId,
+      organizationId: data.organizationId.present
+          ? data.organizationId.value
+          : this.organizationId,
+      scopeId: data.scopeId.present ? data.scopeId.value : this.scopeId,
       attendanceDate: data.attendanceDate.present
           ? data.attendanceDate.value
           : this.attendanceDate,
@@ -399,8 +404,8 @@ class AttendanceTableData extends DataClass
   String toString() {
     return (StringBuffer('AttendanceTableData(')
           ..write('id: $id, ')
-          ..write('orgId: $orgId, ')
-          ..write('contextId: $contextId, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('scopeId: $scopeId, ')
           ..write('attendanceDate: $attendanceDate, ')
           ..write('status: $status, ')
           ..write('actualUnits: $actualUnits, ')
@@ -417,8 +422,8 @@ class AttendanceTableData extends DataClass
   @override
   int get hashCode => Object.hash(
       id,
-      orgId,
-      contextId,
+      organizationId,
+      scopeId,
       attendanceDate,
       status,
       actualUnits,
@@ -433,8 +438,8 @@ class AttendanceTableData extends DataClass
       identical(this, other) ||
       (other is AttendanceTableData &&
           other.id == this.id &&
-          other.orgId == this.orgId &&
-          other.contextId == this.contextId &&
+          other.organizationId == this.organizationId &&
+          other.scopeId == this.scopeId &&
           other.attendanceDate == this.attendanceDate &&
           other.status == this.status &&
           other.actualUnits == this.actualUnits &&
@@ -448,8 +453,8 @@ class AttendanceTableData extends DataClass
 
 class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
   final Value<String> id;
-  final Value<String> orgId;
-  final Value<String> contextId;
+  final Value<String> organizationId;
+  final Value<String> scopeId;
   final Value<DateTime> attendanceDate;
   final Value<String> status;
   final Value<double> actualUnits;
@@ -462,8 +467,8 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
   final Value<int> rowid;
   const AttendanceTableCompanion({
     this.id = const Value.absent(),
-    this.orgId = const Value.absent(),
-    this.contextId = const Value.absent(),
+    this.organizationId = const Value.absent(),
+    this.scopeId = const Value.absent(),
     this.attendanceDate = const Value.absent(),
     this.status = const Value.absent(),
     this.actualUnits = const Value.absent(),
@@ -477,8 +482,8 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
   });
   AttendanceTableCompanion.insert({
     required String id,
-    required String orgId,
-    required String contextId,
+    required String organizationId,
+    required String scopeId,
     required DateTime attendanceDate,
     required String status,
     required double actualUnits,
@@ -490,8 +495,8 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   })  : id = Value(id),
-        orgId = Value(orgId),
-        contextId = Value(contextId),
+        organizationId = Value(organizationId),
+        scopeId = Value(scopeId),
         attendanceDate = Value(attendanceDate),
         status = Value(status),
         actualUnits = Value(actualUnits),
@@ -499,8 +504,8 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
         updatedAt = Value(updatedAt);
   static Insertable<AttendanceTableData> custom({
     Expression<String>? id,
-    Expression<String>? orgId,
-    Expression<String>? contextId,
+    Expression<String>? organizationId,
+    Expression<String>? scopeId,
     Expression<DateTime>? attendanceDate,
     Expression<String>? status,
     Expression<double>? actualUnits,
@@ -514,8 +519,8 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
   }) {
     return RawValuesInsertable({
       if (id != null) 'id': id,
-      if (orgId != null) 'org_id': orgId,
-      if (contextId != null) 'context_id': contextId,
+      if (organizationId != null) 'organization_id': organizationId,
+      if (scopeId != null) 'scope_id': scopeId,
       if (attendanceDate != null) 'attendance_date': attendanceDate,
       if (status != null) 'status': status,
       if (actualUnits != null) 'actual_units': actualUnits,
@@ -531,8 +536,8 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
 
   AttendanceTableCompanion copyWith(
       {Value<String>? id,
-      Value<String>? orgId,
-      Value<String>? contextId,
+      Value<String>? organizationId,
+      Value<String>? scopeId,
       Value<DateTime>? attendanceDate,
       Value<String>? status,
       Value<double>? actualUnits,
@@ -545,8 +550,8 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
       Value<int>? rowid}) {
     return AttendanceTableCompanion(
       id: id ?? this.id,
-      orgId: orgId ?? this.orgId,
-      contextId: contextId ?? this.contextId,
+      organizationId: organizationId ?? this.organizationId,
+      scopeId: scopeId ?? this.scopeId,
       attendanceDate: attendanceDate ?? this.attendanceDate,
       status: status ?? this.status,
       actualUnits: actualUnits ?? this.actualUnits,
@@ -566,11 +571,11 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
     if (id.present) {
       map['id'] = Variable<String>(id.value);
     }
-    if (orgId.present) {
-      map['org_id'] = Variable<String>(orgId.value);
+    if (organizationId.present) {
+      map['organization_id'] = Variable<String>(organizationId.value);
     }
-    if (contextId.present) {
-      map['context_id'] = Variable<String>(contextId.value);
+    if (scopeId.present) {
+      map['scope_id'] = Variable<String>(scopeId.value);
     }
     if (attendanceDate.present) {
       map['attendance_date'] = Variable<DateTime>(attendanceDate.value);
@@ -609,8 +614,8 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
   String toString() {
     return (StringBuffer('AttendanceTableCompanion(')
           ..write('id: $id, ')
-          ..write('orgId: $orgId, ')
-          ..write('contextId: $contextId, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('scopeId: $scopeId, ')
           ..write('attendanceDate: $attendanceDate, ')
           ..write('status: $status, ')
           ..write('actualUnits: $actualUnits, ')
@@ -3975,8 +3980,8 @@ abstract class _$StandInDatabase extends GeneratedDatabase {
 typedef $$AttendanceTableTableCreateCompanionBuilder = AttendanceTableCompanion
     Function({
   required String id,
-  required String orgId,
-  required String contextId,
+  required String organizationId,
+  required String scopeId,
   required DateTime attendanceDate,
   required String status,
   required double actualUnits,
@@ -3991,8 +3996,8 @@ typedef $$AttendanceTableTableCreateCompanionBuilder = AttendanceTableCompanion
 typedef $$AttendanceTableTableUpdateCompanionBuilder = AttendanceTableCompanion
     Function({
   Value<String> id,
-  Value<String> orgId,
-  Value<String> contextId,
+  Value<String> organizationId,
+  Value<String> scopeId,
   Value<DateTime> attendanceDate,
   Value<String> status,
   Value<double> actualUnits,
@@ -4017,11 +4022,12 @@ class $$AttendanceTableTableFilterComposer
   ColumnFilters<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get orgId => $composableBuilder(
-      column: $table.orgId, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get organizationId => $composableBuilder(
+      column: $table.organizationId,
+      builder: (column) => ColumnFilters(column));
 
-  ColumnFilters<String> get contextId => $composableBuilder(
-      column: $table.contextId, builder: (column) => ColumnFilters(column));
+  ColumnFilters<String> get scopeId => $composableBuilder(
+      column: $table.scopeId, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get attendanceDate => $composableBuilder(
       column: $table.attendanceDate,
@@ -4066,11 +4072,12 @@ class $$AttendanceTableTableOrderingComposer
   ColumnOrderings<String> get id => $composableBuilder(
       column: $table.id, builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get orgId => $composableBuilder(
-      column: $table.orgId, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get organizationId => $composableBuilder(
+      column: $table.organizationId,
+      builder: (column) => ColumnOrderings(column));
 
-  ColumnOrderings<String> get contextId => $composableBuilder(
-      column: $table.contextId, builder: (column) => ColumnOrderings(column));
+  ColumnOrderings<String> get scopeId => $composableBuilder(
+      column: $table.scopeId, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get attendanceDate => $composableBuilder(
       column: $table.attendanceDate,
@@ -4116,11 +4123,11 @@ class $$AttendanceTableTableAnnotationComposer
   GeneratedColumn<String> get id =>
       $composableBuilder(column: $table.id, builder: (column) => column);
 
-  GeneratedColumn<String> get orgId =>
-      $composableBuilder(column: $table.orgId, builder: (column) => column);
+  GeneratedColumn<String> get organizationId => $composableBuilder(
+      column: $table.organizationId, builder: (column) => column);
 
-  GeneratedColumn<String> get contextId =>
-      $composableBuilder(column: $table.contextId, builder: (column) => column);
+  GeneratedColumn<String> get scopeId =>
+      $composableBuilder(column: $table.scopeId, builder: (column) => column);
 
   GeneratedColumn<DateTime> get attendanceDate => $composableBuilder(
       column: $table.attendanceDate, builder: (column) => column);
@@ -4179,8 +4186,8 @@ class $$AttendanceTableTableTableManager extends RootTableManager<
               $$AttendanceTableTableAnnotationComposer($db: db, $table: table),
           updateCompanionCallback: ({
             Value<String> id = const Value.absent(),
-            Value<String> orgId = const Value.absent(),
-            Value<String> contextId = const Value.absent(),
+            Value<String> organizationId = const Value.absent(),
+            Value<String> scopeId = const Value.absent(),
             Value<DateTime> attendanceDate = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<double> actualUnits = const Value.absent(),
@@ -4194,8 +4201,8 @@ class $$AttendanceTableTableTableManager extends RootTableManager<
           }) =>
               AttendanceTableCompanion(
             id: id,
-            orgId: orgId,
-            contextId: contextId,
+            organizationId: organizationId,
+            scopeId: scopeId,
             attendanceDate: attendanceDate,
             status: status,
             actualUnits: actualUnits,
@@ -4209,8 +4216,8 @@ class $$AttendanceTableTableTableManager extends RootTableManager<
           ),
           createCompanionCallback: ({
             required String id,
-            required String orgId,
-            required String contextId,
+            required String organizationId,
+            required String scopeId,
             required DateTime attendanceDate,
             required String status,
             required double actualUnits,
@@ -4224,8 +4231,8 @@ class $$AttendanceTableTableTableManager extends RootTableManager<
           }) =>
               AttendanceTableCompanion.insert(
             id: id,
-            orgId: orgId,
-            contextId: contextId,
+            organizationId: organizationId,
+            scopeId: scopeId,
             attendanceDate: attendanceDate,
             status: status,
             actualUnits: actualUnits,

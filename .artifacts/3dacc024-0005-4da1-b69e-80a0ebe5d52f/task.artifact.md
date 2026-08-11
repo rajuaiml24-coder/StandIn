@@ -1,13 +1,7 @@
-- [ ] Update Domain models in `lib/src/domain/attendance.dart`
-    - [ ] Add `startDate`, `endDate` to `AttendancePolicy`
-    - [ ] Add `isEstimation`, `recoveryMessage` to `AttendanceSummary`
-- [ ] Update Drift schema in `lib/src/data/local/standin_database.dart`
-    - [ ] Add `startDate`, `endDate` to `OrganizationPolicyRows`
-    - [ ] Regenerate Drift code
-- [ ] Upgrade `PolicyEngine` in `lib/src/domain/policy_engine.dart`
-    - [ ] Refine `summarize` signature and logic
-    - [ ] Implement explicit date handling for periods
-    - [ ] Add `recoveryMessage` generator
-- [ ] Update `AttendanceController` and `OrganizationPolicyRepository`
-- [ ] Update and expand `test/policy_engine_test.dart`
-- [ ] Final verification: Analyze, Test, Build Web
+- [ ] Create `test/firebase_integration_e2e_test.dart`
+- [ ] Implement Account Creation test logic
+- [ ] Implement Organization & Follow test logic
+- [ ] Implement Attendance & Sync test logic
+- [ ] Implement Security Boundary check logic
+- [ ] Run test and capture results
+- [ ] Cleanup test data

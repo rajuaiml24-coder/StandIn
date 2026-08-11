@@ -8,13 +8,67 @@ class OrganizationRepository {
   final StandInDatabase _database;
   final FirestoreOrgRemote _remote;
 
-  Future<AttendancePolicy?> getResolvedPolicy(String orgId, String policyId) async {
-    final row = await _database.policyAt(orgId, DateTime.now());
-    if (row != null && row.policyId == policyId) {
-      return _toPolicy(row);
+  /// Deterministic Policy Resolution:
+  /// Personal Override -> Specific Scope -> Parent Scope -> Org
+  Future<AttendancePolicy?> getResolvedPolicy({
+    required String uid,
+    required String organizationId,
+    required String scopeId,
+    String? followId,
+  }) async {
+    // 1. Check Personal Override (cached in Follow)
+    if (followId != null) {
+      final follow = await _database.getFollow(followId);
+      if (follow?.personalTargetPercent != null) {
+        final basePolicy = await _getPolicyHierarchy(organizationId, scopeId);
+        if (basePolicy != null) {
+          return AttendancePolicy(
+            id: basePolicy.id,
+            version: basePolicy.version,
+            effectiveFrom: basePolicy.effectiveFrom,
+            state: basePolicy.state,
+            evaluationPeriod: basePolicy.evaluationPeriod,
+            minimumPercent: follow!.personalTargetPercent, // Personal goal wins
+            basis: basePolicy.basis,
+            fullUnit: basePolicy.fullUnit,
+            halfUnit: basePolicy.halfUnit,
+            startDate: basePolicy.startDate,
+            endDate: basePolicy.endDate,
+            scopeId: basePolicy.scopeId,
+          );
+        }
+      }
+    }
+
+    return _getPolicyHierarchy(organizationId, scopeId);
+  }
+
+  Future<AttendancePolicy?> _getPolicyHierarchy(String orgId, String scopeId) async {
+    // 2. Specific Scope
+    var policy = await _getCachedOrRemotePolicy(orgId, scopeId);
+    if (policy != null) return policy;
+
+    // 3. Parent Scope (Recursive)
+    var currentScope = await _database.getScope(scopeId);
+    while (currentScope?.parentId != null) {
+      policy = await _getCachedOrRemotePolicy(orgId, currentScope!.parentId!);
+      if (policy != null) return policy;
+      currentScope = await _database.getScope(currentScope.parentId!);
+    }
+
+    // 4. Organization Global
+    return _getCachedOrRemotePolicy(orgId, 'global');
+  }
+
+  Future<AttendancePolicy?> _getCachedOrRemotePolicy(String orgId, String scopeId) async {
+    final cached = await _database.policyAt(orgId, scopeId, DateTime.now());
+    if (cached != null) {
+      return _toPolicy(cached);
     }
     
-    // Remote fetch if missing or outdated
+    // Remote fetch (only if local missing or scopeId mismatch)
+    // For MVP, we useorgId as fallback if scopeId is 'global'
+    final policyId = scopeId == 'global' ? 'org-default' : 'scope-$scopeId'; 
     final remote = await _remote.getPolicy(orgId, policyId);
     if (remote != null) {
       await cachePolicy(orgId, remote);
@@ -53,6 +107,7 @@ class OrganizationRepository {
     halfUnit: row.halfUnit,
     startDate: row.startDate,
     endDate: row.endDate,
+    scopeId: row.scopeId,
   );
 
   Future<void> saveMembership(Membership membership) async {

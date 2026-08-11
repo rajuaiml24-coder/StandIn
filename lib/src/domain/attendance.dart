@@ -180,17 +180,26 @@ class AttendanceRecord {
   final String? organizationId;
   final String? scopeId;
 
-  AttendanceRecord copyWith({bool? pendingSync}) => AttendanceRecord(
+  AttendanceRecord copyWith({
+    bool? pendingSync,
+    String? organizationId,
+    String? scopeId,
+    String? policyVersionId,
+    String? calendarVersionId,
+    AttendanceStatus? status,
+    double? actualUnits,
+  }) =>
+      AttendanceRecord(
         date: date,
-        status: status,
-        actualUnits: actualUnits,
+        status: status ?? this.status,
+        actualUnits: actualUnits ?? this.actualUnits,
         expectedUnits: expectedUnits,
         pendingSync: pendingSync ?? this.pendingSync,
         source: source,
-        policyVersionId: policyVersionId,
-        calendarVersionId: calendarVersionId,
-        organizationId: organizationId,
-        scopeId: scopeId,
+        policyVersionId: policyVersionId ?? this.policyVersionId,
+        calendarVersionId: calendarVersionId ?? this.calendarVersionId,
+        organizationId: organizationId ?? this.organizationId,
+        scopeId: scopeId ?? this.scopeId,
       );
 }
 

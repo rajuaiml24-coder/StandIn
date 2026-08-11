@@ -5,26 +5,49 @@ service cloud.firestore {
     function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
     function isAdmin() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true; }
 
+    // Helper to check if a user is trying to modify protected user profile fields
+    function isModifyingProtectedUserFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['isAdmin', 'isVerified', 'role', 'createdAt']);
+    }
+
+    // Helper to check if a user is trying to modify historical attendance context
+    function isModifyingProtectedAttendanceFields() {
+      return request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['organizationId', 'scopeId', 'date', 'policyVersionId', 'calendarVersionId', 'createdAt']);
+    }
+
     match /usernames/{username} {
       allow read: if true;
-      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+      allow create: if signedIn() &&
+                      request.resource.data.uid == request.auth.uid &&
+                      request.resource.data.keys().size() == 1; // ONLY UID
     }
 
     match /users/{uid} {
-      allow read, write: if isOwner(uid);
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) &&
+                      request.resource.data.isAdmin == false &&
+                      request.resource.data.role in ['student', 'employee'];
+      allow update: if isOwner(uid) && !isModifyingProtectedUserFields();
 
       match /follows/{followId} {
         allow read, write: if isOwner(uid);
       }
 
       match /attendance/{attendanceId} {
-        allow read, write: if isOwner(uid);
+        allow read: if isOwner(uid);
+        allow create: if isOwner(uid) &&
+                        request.resource.data.keys().hasAll(['organizationId', 'scopeId', 'date', 'status', 'policyVersionId']);
+        allow update: if isOwner(uid) && !isModifyingProtectedAttendanceFields();
+        allow delete: if isOwner(uid);
       }
     }
 
     match /organizations/{orgId} {
       allow read: if true;
-      allow write: if isAdmin();
+      allow create: if signedIn(); // Anyone can create a community org
+      allow update, delete: if isAdmin();
 
       match /scopes/{scopeId} {
         allow read: if signedIn();
@@ -43,13 +66,19 @@ service cloud.firestore {
 
       match /members/{uid} {
         allow read: if isOwner(uid) || isAdmin();
-        allow create: if signedIn() && request.resource.data.status == 'applicant';
-        allow update, delete: if isAdmin();
+        allow create: if signedIn() &&
+                        request.auth.uid == uid &&
+                        request.resource.data.status in ['follower', 'applicant'];
+        allow update: if isAdmin(); // Only admins can verify or change status
+        allow delete: if isAdmin();
       }
 
       match /proposals/{proposalId} {
         allow read: if signedIn();
-        allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+        allow create: if signedIn() &&
+                        request.resource.data.organizationId == orgId &&
+                        request.resource.data.createdBy == request.auth.uid &&
+                        request.resource.data.keys().hasAll(['scopeId', 'type', 'suggestedChange', 'createdAt']);
       }
     }
   }
