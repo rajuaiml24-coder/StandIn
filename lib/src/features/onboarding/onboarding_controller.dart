@@ -1,5 +1,8 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../data/auth/auth_service.dart';
+import '../../data/organization_repository.dart';
+import '../../data/user_repository.dart';
 import '../../domain/attendance.dart';
 import '../../domain/validators.dart';
 
@@ -17,6 +20,18 @@ enum OnboardingStep {
 }
 
 class OnboardingController extends ChangeNotifier {
+  OnboardingController({
+    required AuthService authService,
+    required UserRepository userRepository,
+    required OrganizationRepository organizationRepository,
+  })  : _authService = authService,
+        _userRepository = userRepository,
+        _organizationRepository = organizationRepository;
+
+  final AuthService _authService;
+  final UserRepository _userRepository;
+  final OrganizationRepository _organizationRepository;
+
   OnboardingStep _step = OnboardingStep.welcome;
   OnboardingStep get step => _step;
 
@@ -163,7 +178,38 @@ class OnboardingController extends ChangeNotifier {
     }
   }
 
-  void followOrganization() {
+  Future<void> followOrganization() async {
+    final uid = _authService.uid;
+    if (uid == null) return;
+
+    final follow = Follow(
+      id: 'f-${DateTime.now().millisecondsSinceEpoch}',
+      organizationId: _selectedOrganization!.id,
+      scopeId: _selectedOrganization!.id, // Default to org id as scope for now
+      status: 'active',
+      followedAt: DateTime.now(),
+    );
+
+    final membership = Membership(
+      uid: uid,
+      organizationId: _selectedOrganization!.id,
+      status: 'follower',
+      idNumber: _identificationNumber,
+      joinedAt: DateTime.now(),
+    );
+
+    final profile = UserProfile(
+      uid: uid,
+      displayName: _displayName,
+      mobile: _mobile,
+      role: _role!,
+      activeFollowId: follow.id,
+    );
+
+    await _userRepository.createProfile(profile);
+    await _userRepository.saveFollow(uid, follow);
+    await _organizationRepository.saveMembership(membership);
+
     _step = OnboardingStep.complete;
     notifyListeners();
   }

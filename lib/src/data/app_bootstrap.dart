@@ -16,7 +16,8 @@ class AppBootstrap {
   final AuthService authService;
   final FirestoreAttendanceRemote remote;
 
-  AttendanceController attendanceController({required String uid, required String organizationId, required AttendancePolicy policy}) => AttendanceController(LocalFirstAttendanceRepository(database, uid: uid, organizationId: organizationId), const PolicyEngine(), policy);
+  AttendanceController attendanceController({required String uid, required String organizationId, required String scopeId, required AttendancePolicy policy}) => 
+    AttendanceController(LocalFirstAttendanceRepository(database, uid: uid, organizationId: organizationId, scopeId: scopeId), const PolicyEngine(), policy);
 
   SyncEngine syncEngine(String uid) => SyncEngine(database, remote, uid: uid);
 

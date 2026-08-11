@@ -3,28 +3,54 @@ service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function isOwner(uid) { return signedIn() && request.auth.uid == uid; }
+    function isAdmin() { return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.isAdmin == true; }
+
+    match /usernames/{username} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.uid == request.auth.uid;
+    }
 
     match /users/{uid} {
-      allow read, create, update: if isOwner(uid);
-      allow delete: if false;
-      match /attendance/{recordId} { allow read, write: if isOwner(uid); }
-      match /organizationHistory/{orgId} { allow read, write: if isOwner(uid); }
+      allow read, write: if isOwner(uid);
+
+      match /follows/{followId} {
+        allow read, write: if isOwner(uid);
+      }
+
+      match /attendance/{attendanceId} {
+        allow read, write: if isOwner(uid);
+      }
     }
 
     match /organizations/{orgId} {
-      allow read: if signedIn();
-      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow update, delete: if false;
-      match /policyVersions/{versionId} { allow read: if signedIn(); allow write: if false; }
-      match /followers/{uid} { allow read: if signedIn(); allow create, update, delete: if isOwner(uid); }
-      match /members/{uid} { allow read: if isOwner(uid); allow write: if false; }
-    }
+      allow read: if true;
+      allow write: if isAdmin();
 
-    match /policyProposals/{proposalId} {
-      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
-      allow read: if signedIn() && resource.data.createdBy == request.auth.uid;
-      allow update, delete: if false;
+      match /scopes/{scopeId} {
+        allow read: if signedIn();
+        allow write: if isAdmin();
+      }
+
+      match /policies/{policyId} {
+        allow read: if signedIn();
+        allow write: if isAdmin();
+      }
+
+      match /calendars/{calendarId} {
+        allow read: if signedIn();
+        allow write: if isAdmin();
+      }
+
+      match /members/{uid} {
+        allow read: if isOwner(uid) || isAdmin();
+        allow create: if signedIn() && request.resource.data.status == 'applicant';
+        allow update, delete: if isAdmin();
+      }
+
+      match /proposals/{proposalId} {
+        allow read: if signedIn();
+        allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      }
     }
-    match /{document=**} { allow read, write: if false; }
   }
 }

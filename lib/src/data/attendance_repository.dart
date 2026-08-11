@@ -10,3 +10,8 @@ abstract class AttendanceRepository {
 abstract class SyncQueueRepository implements AttendanceRepository {
   Future<void> syncPending();
 }
+
+String attendanceId(DateTime date, String orgId, String scopeId) {
+  final dateStr = date.toIso8601String().substring(0, 10);
+  return '${dateStr}_${orgId}_$scopeId';
+}

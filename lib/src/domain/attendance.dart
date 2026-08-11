@@ -11,9 +11,7 @@ class UserProfile {
     required this.displayName,
     this.mobile,
     required this.role,
-    this.currentOrganizationId,
-    this.identificationNumber,
-    this.isOrganizationVerified = false,
+    this.activeFollowId,
     this.pinEnabled = false,
   });
 
@@ -21,18 +19,14 @@ class UserProfile {
   final String displayName;
   final String? mobile;
   final AppRole role;
-  final String? currentOrganizationId;
-  final String? identificationNumber;
-  final bool isOrganizationVerified;
+  final String? activeFollowId;
   final bool pinEnabled;
 
   UserProfile copyWith({
     String? displayName,
     String? mobile,
     AppRole? role,
-    String? currentOrganizationId,
-    String? identificationNumber,
-    bool? isOrganizationVerified,
+    String? activeFollowId,
     bool? pinEnabled,
   }) =>
       UserProfile(
@@ -40,9 +34,7 @@ class UserProfile {
         displayName: displayName ?? this.displayName,
         mobile: mobile ?? this.mobile,
         role: role ?? this.role,
-        currentOrganizationId: currentOrganizationId ?? this.currentOrganizationId,
-        identificationNumber: identificationNumber ?? this.identificationNumber,
-        isOrganizationVerified: isOrganizationVerified ?? this.isOrganizationVerified,
+        activeFollowId: activeFollowId ?? this.activeFollowId,
         pinEnabled: pinEnabled ?? this.pinEnabled,
       );
 }
@@ -57,6 +49,8 @@ class Organization {
     this.isHolidayCalendarConfigured = false,
     this.followerCount = 0,
     this.confidenceScore = 0.0,
+    this.activePolicyId,
+    this.activeCalendarId,
   });
 
   final String id;
@@ -67,6 +61,64 @@ class Organization {
   final bool isHolidayCalendarConfigured;
   final int followerCount;
   final double confidenceScore;
+  final String? activePolicyId;
+  final String? activeCalendarId;
+}
+
+class Scope {
+  const Scope({
+    required this.id,
+    required this.organizationId,
+    this.parentId,
+    required this.type,
+    required this.name,
+    this.activePolicyId,
+    this.activeCalendarId,
+  });
+
+  final String id;
+  final String organizationId;
+  final String? parentId;
+  final String type; // Enum-like: branch, department, semester, team
+  final String name;
+  final String? activePolicyId;
+  final String? activeCalendarId;
+}
+
+class Follow {
+  const Follow({
+    required this.id,
+    required this.organizationId,
+    required this.scopeId,
+    this.personalTargetPercent,
+    required this.status,
+    required this.followedAt,
+  });
+
+  final String id;
+  final String organizationId;
+  final String scopeId;
+  final double? personalTargetPercent;
+  final String status; // Enum-like: active, archived
+  final DateTime followedAt;
+}
+
+class Membership {
+  const Membership({
+    required this.uid,
+    required this.organizationId,
+    required this.status,
+    this.idNumber,
+    required this.joinedAt,
+    this.verifiedAt,
+  });
+
+  final String uid;
+  final String organizationId;
+  final String status; // Enum-like: follower, applicant, verified_member
+  final String? idNumber;
+  final DateTime joinedAt;
+  final DateTime? verifiedAt;
 }
 
 class AttendancePolicy {
@@ -83,6 +135,7 @@ class AttendancePolicy {
     this.weeklyOffs = const [7], // Default Sunday
     this.startDate,
     this.endDate,
+    this.scopeId,
   });
 
   final String id;
@@ -97,6 +150,7 @@ class AttendancePolicy {
   final List<int> weeklyOffs;
   final DateTime? startDate;
   final DateTime? endDate;
+  final String? scopeId;
 
   bool get isSure => minimumPercent != null;
 }
@@ -109,6 +163,10 @@ class AttendanceRecord {
     required this.expectedUnits,
     this.pendingSync = false,
     this.source = 'manual',
+    this.policyVersionId,
+    this.calendarVersionId,
+    this.organizationId,
+    this.scopeId,
   });
 
   final DateTime date;
@@ -117,6 +175,10 @@ class AttendanceRecord {
   final double expectedUnits;
   final bool pendingSync;
   final String source;
+  final String? policyVersionId;
+  final String? calendarVersionId;
+  final String? organizationId;
+  final String? scopeId;
 
   AttendanceRecord copyWith({bool? pendingSync}) => AttendanceRecord(
         date: date,
@@ -125,6 +187,10 @@ class AttendanceRecord {
         expectedUnits: expectedUnits,
         pendingSync: pendingSync ?? this.pendingSync,
         source: source,
+        policyVersionId: policyVersionId,
+        calendarVersionId: calendarVersionId,
+        organizationId: organizationId,
+        scopeId: scopeId,
       );
 }
 

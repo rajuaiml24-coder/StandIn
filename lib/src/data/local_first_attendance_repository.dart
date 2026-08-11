@@ -7,28 +7,70 @@ import 'attendance_repository.dart';
 import 'local/standin_database.dart';
 
 class LocalFirstAttendanceRepository implements SyncQueueRepository {
-  LocalFirstAttendanceRepository(this._database, {required this.uid, required this.organizationId});
+  LocalFirstAttendanceRepository(this._database, {required this.uid, required String organizationId, required String scopeId})
+      : currentOrgId = organizationId,
+        currentScopeId = scopeId;
+        
   final StandInDatabase _database;
   final String uid;
-  final String organizationId;
+  final String currentOrgId;
+  final String currentScopeId;
 
   @override
-  Stream<List<AttendanceRecord>> watchRecords() => _database.watchAttendance(organizationId).map((rows) => rows.map(_toDomain).toList(growable: false));
+  Stream<List<AttendanceRecord>> watchRecords() => _database.watchAttendance(currentOrgId).map((rows) => rows.map(_toDomain).toList(growable: false));
 
   @override
   Future<void> save(AttendanceRecord record) async {
-    final id = attendanceId(uid, organizationId, record.date);
+    final recordId = attendanceId(record.date, currentOrgId, currentScopeId);
+    final enriched = record.copyWith(organizationId: currentOrgId, scopeId: currentScopeId);
     await _database.transaction(() async {
-      await _database.upsertAttendance(AttendanceRowsCompanion.insert(id: id, organizationId: organizationId, attendanceDate: record.date, status: record.status.name, actualUnits: record.actualUnits, expectedUnits: record.expectedUnits, pendingSync: const Value(true), syncError: const Value(null), updatedAt: DateTime.now()));
-      await _database.enqueue(SyncQueueRowsCompanion.insert(id: 'attendance:$id', operation: 'upsertAttendance', entityId: id, payload: jsonEncode(_payload(record)), nextAttemptAt: DateTime.now(), createdAt: DateTime.now()));
+      await _database.upsertAttendance(AttendanceTableCompanion.insert(
+        id: recordId,
+        orgId: currentOrgId,
+        contextId: currentScopeId,
+        attendanceDate: record.date,
+        status: record.status.name,
+        actualUnits: record.actualUnits,
+        expectedUnits: record.expectedUnits,
+        updatedAt: DateTime.now(),
+        policyVersionId: Value(record.policyVersionId),
+        calendarVersionId: Value(record.calendarVersionId),
+      ));
+      await _database.enqueue(SyncQueueRowsCompanion.insert(
+        id: 'attendance:$recordId', 
+        operation: 'upsertAttendance', 
+        entityId: recordId, 
+        payload: jsonEncode(_payload(enriched)), 
+        nextAttemptAt: DateTime.now(), 
+        createdAt: DateTime.now()
+      ));
     });
   }
 
   @override
   Future<void> syncPending() async {}
 
-  Map<String, Object> _payload(AttendanceRecord record) => {'organizationId': organizationId, 'date': record.date.toIso8601String(), 'status': record.status.name, 'actualUnits': record.actualUnits, 'expectedUnits': record.expectedUnits};
-  AttendanceRecord _toDomain(AttendanceRow row) => AttendanceRecord(date: row.attendanceDate, status: AttendanceStatus.values.byName(row.status), actualUnits: row.actualUnits, expectedUnits: row.expectedUnits, pendingSync: row.pendingSync);
+  Map<String, Object?> _payload(AttendanceRecord record) => {
+    'organizationId': record.organizationId, 
+    'scopeId': record.scopeId,
+    'date': record.date.toIso8601String(), 
+    'status': record.status.name, 
+    'actualUnits': record.actualUnits, 
+    'expectedUnits': record.expectedUnits,
+    'policyVersionId': record.policyVersionId,
+    'calendarVersionId': record.calendarVersionId,
+    'source': record.source,
+  };
+  
+  AttendanceRecord _toDomain(AttendanceTableData row) => AttendanceRecord(
+    date: row.attendanceDate, 
+    status: AttendanceStatus.values.byName(row.status), 
+    actualUnits: row.actualUnits, 
+    expectedUnits: row.expectedUnits, 
+    organizationId: row.orgId,
+    scopeId: row.contextId,
+    policyVersionId: row.policyVersionId,
+    calendarVersionId: row.calendarVersionId,
+    pendingSync: row.pendingSync
+  );
 }
-
-String attendanceId(String uid, String organizationId, DateTime date) => '$uid-$organizationId-${date.year.toString().padLeft(4, '0')}${date.month.toString().padLeft(2, '0')}${date.day.toString().padLeft(2, '0')}';

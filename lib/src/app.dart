@@ -1,5 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'data/auth/auth_service.dart';
+import 'data/user_repository.dart';
+import 'data/organization_repository.dart';
+import 'data/remote/firestore_user_remote.dart';
+import 'data/remote/firestore_org_remote.dart';
+import 'data/local/standin_database.dart';
 import 'data/development_repository.dart';
 import 'domain/attendance.dart';
 import 'domain/policy_engine.dart';
@@ -28,11 +37,26 @@ class StandInApp extends StatefulWidget {
 
 class _StandInAppState extends State<StandInApp> {
   late final AttendanceController attendanceController;
-  final onboardingController = OnboardingController();
+  late final OnboardingController onboardingController;
+  late final StandInDatabase database;
   
   @override
   void initState() {
     super.initState();
+    database = StandInDatabase();
+    final auth = AuthService(FirebaseAuth.instance, const FlutterSecureStorage());
+    final userRemote = FirestoreUserRemote(FirebaseFirestore.instance);
+    final orgRemote = FirestoreOrgRemote(FirebaseFirestore.instance);
+    
+    final userRepo = UserRepository(database, userRemote);
+    final orgRepo = OrganizationRepository(database, orgRemote);
+
+    onboardingController = OnboardingController(
+      authService: auth,
+      userRepository: userRepo,
+      organizationRepository: orgRepo,
+    );
+
     attendanceController = AttendanceController(
       DevelopmentAttendanceRepository(),
       const PolicyEngine(),
@@ -56,6 +80,7 @@ class _StandInAppState extends State<StandInApp> {
   void dispose() { 
     attendanceController.dispose(); 
     onboardingController.dispose();
+    database.close();
     super.dispose(); 
   }
 
