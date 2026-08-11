@@ -57,9 +57,9 @@ class PolicyPreviewPage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(24),
                         ),
                         child: Column(
-                          children: [
-                            _PolicyRow(label: 'Minimum Required', value: '${policy.minimumPercent.toStringAsFixed(0)}%'),
-                            const Divider(height: 32),
+                  children: [
+                    _PolicyRow(label: 'Minimum Required', value: policy.minimumPercent == null ? 'Not Sure' : '${policy.minimumPercent!.toStringAsFixed(0)}%'),
+                    const Divider(height: 32),
                             _PolicyRow(label: 'Calculation Basis', value: policy.basis.name.toUpperCase()),
                             const Divider(height: 32),
                             _PolicyRow(label: 'Full Day', value: '${policy.fullUnit.toStringAsFixed(1)}h'),

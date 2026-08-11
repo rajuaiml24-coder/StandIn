@@ -36,7 +36,19 @@ class _StandInAppState extends State<StandInApp> {
     attendanceController = AttendanceController(
       DevelopmentAttendanceRepository(),
       const PolicyEngine(),
-      AttendancePolicy(id: 'demo-v1', version: 1, effectiveFrom: DateTime(2026, 8, 1), minimumPercent: 75, basis: CalculationBasis.hours, fullUnit: 7, halfUnit: 3.5),
+      AttendancePolicy(
+        id: 'demo-v1', 
+        version: 1, 
+        effectiveFrom: DateTime(2026, 8, 1), 
+        state: PolicyState.draft,
+        evaluationPeriod: EvaluationPeriod.monthly,
+        minimumPercent: 75, 
+        basis: CalculationBasis.hours, 
+        fullUnit: 7, 
+        halfUnit: 3.5,
+        startDate: DateTime(2026, 8, 1),
+        endDate: DateTime(2026, 8, 31),
+      ),
     );
   }
   
@@ -307,22 +319,30 @@ class _DashboardShellState extends State<DashboardShell> {
   @override
   Widget build(BuildContext context) {
     final screens = [
-      HomePage(controller: widget.controller), 
+      HomePage(controller: widget.controller, onNavigateToCalendar: () => setState(() => page = 1)), 
       CalendarPage(controller: widget.controller), 
-      InsightPage(controller: widget.controller), 
       ProfilePage(onLogout: widget.onLogout),
     ];
     return Scaffold(
       body: SafeArea(child: screens[page]),
-      floatingActionButton: page == 3 ? null : FloatingActionButton.extended(onPressed: () => showMarkAttendance(context, widget.controller), backgroundColor: orange, foregroundColor: Colors.white, icon: const Icon(Icons.add_task_outlined), label: const Text('Mark today')),
-      bottomNavigationBar: NavigationBar(selectedIndex: page, onDestinationSelected: (value) => setState(() => page = value), destinations: const [NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'), NavigationDestination(icon: Icon(Icons.calendar_month_outlined), label: 'Calendar'), NavigationDestination(icon: Icon(Icons.insights_outlined), label: 'Insights'), NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile')]),
+      floatingActionButton: page == 2 ? null : FloatingActionButton.extended(onPressed: () => showMarkAttendance(context, widget.controller), backgroundColor: orange, foregroundColor: Colors.white, icon: const Icon(Icons.add_task_outlined), label: const Text('Mark today')),
+      bottomNavigationBar: NavigationBar(
+        selectedIndex: page, 
+        onDestinationSelected: (value) => setState(() => page = value), 
+        destinations: const [
+          NavigationDestination(icon: Icon(Icons.home_outlined), label: 'Home'), 
+          NavigationDestination(icon: Icon(Icons.calendar_month_outlined), label: 'Calendar'), 
+          NavigationDestination(icon: Icon(Icons.person_outline), label: 'Profile')
+        ],
+      ),
     );
   }
 }
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required this.controller});
+  const HomePage({super.key, required this.controller, required this.onNavigateToCalendar});
   final AttendanceController controller;
+  final VoidCallback onNavigateToCalendar;
 
   @override
   Widget build(BuildContext context) => AnimatedBuilder(
@@ -331,22 +351,43 @@ class HomePage extends StatelessWidget {
       final summary = controller.summary;
       if (summary == null) return const Center(child: CircularProgressIndicator());
       final today = controller.recordFor(DateTime.now());
+
       return ListView(padding: const EdgeInsets.fromLTRB(20, 16, 20, 112), children: [
         Row(children: [
-          const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Good afternoon', style: TextStyle(color: Color(0xFF667085), fontSize: 14)), SizedBox(height: 2), Text('Your attendance', style: TextStyle(fontSize: 26, letterSpacing: -.6, fontWeight: FontWeight.w800, color: navy))])),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(summary.periodLabel, style: const TextStyle(color: Color(0xFF667085), fontSize: 14, fontWeight: FontWeight.w600)), 
+            const SizedBox(height: 2), 
+            Text(summary.isSafe ? 'You are safe' : 'Attention needed', 
+              style: const TextStyle(fontSize: 26, letterSpacing: -.6, fontWeight: FontWeight.w800, color: navy)
+            )
+          ])),
           Container(padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(14)), child: const Icon(Icons.notifications_none_rounded, color: navy)),
         ]),
-        const SizedBox(height: 10),
-        const Row(children: [Icon(Icons.account_balance_outlined, size: 15, color: Color(0xFF667085)), SizedBox(width: 5), Text('StandIn demo', style: TextStyle(fontSize: 13, color: Color(0xFF667085))), SizedBox(width: 4), Icon(Icons.keyboard_arrow_down_rounded, size: 17, color: Color(0xFF667085))]),
         const SizedBox(height: 20),
-        _AttendanceHero(summary: summary, requiredPercent: controller.policy.minimumPercent),
+        _AttendanceHero(summary: summary, requiredPercent: controller.policy.minimumPercent ?? 0),
         const SizedBox(height: 12),
-        AdviceCard(summary: summary, policy: controller.policy),
-        const SizedBox(height: 20),
-        const Text('Today', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navy)),
-        const SizedBox(height: 9),
-        _TodayCard(record: today, onTap: () => showMarkAttendance(context, controller)),
-        const SizedBox(height: 22),
+        if (summary.isPolicyIncomplete)
+          _PolicyIncompleteCard(onTap: () {})
+        else
+          AdviceCard(summary: summary, policy: controller.policy),
+        const SizedBox(height: 24),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const Text('Today', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navy)),
+            TextButton(
+              onPressed: onNavigateToCalendar, 
+              child: const Row(children: [
+                Text('View Calendar', style: TextStyle(color: orange, fontWeight: FontWeight.w700)),
+                SizedBox(width: 4),
+                Icon(Icons.arrow_forward_rounded, size: 16, color: orange),
+              ]),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        _TodayCard(record: today, policy: controller.policy, onTap: () => showMarkAttendance(context, controller)),
+        const SizedBox(height: 24),
         const Text('Recent activity', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: navy)),
         const SizedBox(height: 9),
         ...controller.records.reversed.take(3).map((record) => _ActivityRow(record: record)),
@@ -376,6 +417,22 @@ class HomePage extends StatelessWidget {
   );
 }
 
+class _PolicyIncompleteCard extends StatelessWidget {
+  const _PolicyIncompleteCard({required this.onTap});
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(20), 
+    decoration: BoxDecoration(color: const Color(0xFFF6F7FB), borderRadius: BorderRadius.circular(24)),
+    child: Row(children: [
+      const Icon(Icons.help_outline_rounded, color: Color(0xFF667085)),
+      const SizedBox(width: 16),
+      const Expanded(child: Text('Policy information incomplete. Some calculations are hidden.', style: TextStyle(color: Color(0xFF667085), fontSize: 13))),
+      TextButton(onPressed: onTap, child: const Text('Configure'))
+    ]),
+  );
+}
+
 class _AttendanceHero extends StatelessWidget {
   const _AttendanceHero({required this.summary, required this.requiredPercent});
   final AttendanceSummary summary;
@@ -383,7 +440,22 @@ class _AttendanceHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = summary.isSafe ? const Color(0xFF67E8A9) : const Color(0xFFFFC37B);
+    final bool isAtRisk = !summary.isPolicyIncomplete && 
+        summary.percent >= requiredPercent && 
+        (summary.percent - requiredPercent) < 5;
+    
+    final statusColor = summary.isPolicyIncomplete 
+        ? const Color(0xFF98A2B3)
+        : (summary.isSafe 
+            ? (isAtRisk ? const Color(0xFFF59E0B) : const Color(0xFF16A34A)) 
+            : const Color(0xFFDC2626));
+    
+    final statusLabel = summary.isPolicyIncomplete
+        ? 'POLICY DRAFT'
+        : (summary.isSafe 
+            ? (isAtRisk ? '• AT RISK' : '• ON TRACK') 
+            : '• BELOW TARGET');
+
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -420,17 +492,19 @@ class _AttendanceHero extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6), 
                 decoration: BoxDecoration(color: statusColor.withValues(alpha: .15), borderRadius: BorderRadius.circular(20)), 
                 child: Text(
-                  summary.isSafe ? '• ON TRACK' : '• ATTENTION NEEDED', 
+                  statusLabel, 
                   style: TextStyle(fontSize: 10, letterSpacing: 1, fontWeight: FontWeight.w900, color: statusColor)
                 )
               ),
               const SizedBox(height: 12),
               Text(
-                summary.isSafe ? 'You are safe' : 'Time to recover', 
-                style: const TextStyle(fontSize: 22, color: Colors.white, fontWeight: FontWeight.w900)
+                summary.isPolicyIncomplete 
+                    ? 'Help verify policy' 
+                    : (summary.isSafe ? (isAtRisk ? 'Near the limit' : 'You are safe') : 'Below required %'), 
+                style: const TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.w900)
               ),
               const SizedBox(height: 4),
-              Text('Required: ${requiredPercent.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white60, fontSize: 14)),
+              Text(summary.isPolicyIncomplete ? 'Calculations limited' : 'Target: ${requiredPercent.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white60, fontSize: 14)),
             ])),
           ]),
         ],
@@ -448,7 +522,14 @@ class AdviceCard extends StatelessWidget {
     final safe = summary.isSafe;
     final units = safe ? summary.safeToMiss : summary.unitsToRecover;
     final accent = safe ? const Color(0xFF16A34A) : orange;
+    final unitLabel = policy.basis == CalculationBasis.hours ? 'h' : (policy.basis == CalculationBasis.days ? ' days' : ' classes');
     
+    // Employee specific WFO phrasing
+    final isEmployee = policy.id.contains('emp') || policy.fullUnit >= 7; // Mock detection
+    final actionPrefix = safe 
+        ? (isEmployee ? 'You can work remote for ' : 'You can miss ')
+        : (isEmployee ? 'You need to work from office for ' : 'Attend the next ');
+
     return Container(
       padding: const EdgeInsets.all(20), 
       decoration: BoxDecoration(
@@ -474,14 +555,14 @@ class AdviceCard extends StatelessWidget {
             text: TextSpan(
               style: const TextStyle(fontSize: 14, height: 1.4, color: Color(0xFF667085)),
               children: [
-                TextSpan(text: safe ? 'You can miss ' : 'Attend the next '),
+                TextSpan(text: actionPrefix),
                 TextSpan(
-                  text: '${units.toStringAsFixed(1)}h', 
+                  text: '${units.toStringAsFixed(1)}$unitLabel', 
                   style: TextStyle(color: accent, fontWeight: FontWeight.w800)
                 ),
                 TextSpan(text: safe ? ' and stay above ' : ' to reach '),
                 TextSpan(
-                  text: '${policy.minimumPercent.toStringAsFixed(0)}%', 
+                  text: '${policy.minimumPercent?.toStringAsFixed(0) ?? "target"}%', 
                   style: const TextStyle(color: navy, fontWeight: FontWeight.w800)
                 ),
                 const TextSpan(text: '.'),
@@ -495,58 +576,61 @@ class AdviceCard extends StatelessWidget {
 }
 
 class _TodayCard extends StatelessWidget {
-  const _TodayCard({required this.record, required this.onTap});
+  const _TodayCard({required this.record, required this.policy, required this.onTap});
   final AttendanceRecord? record;
+  final AttendancePolicy policy;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
     final marked = record != null;
+    final unitLabel = policy.basis == CalculationBasis.hours ? 'h' : (policy.basis == CalculationBasis.days ? ' days' : ' classes');
+    
     return Material(
       color: Colors.white,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(24),
         child: Padding(
-          padding: const EdgeInsets.all(17),
+          padding: const EdgeInsets.all(20),
           child: Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 48,
+                height: 48,
                 decoration: BoxDecoration(
-                  color: (marked ? Colors.green : orange).withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(14),
+                  color: (marked ? (record!.status == AttendanceStatus.absent ? Colors.red : Colors.green) : orange).withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(16),
                 ),
                 child: Icon(
-                  marked ? Icons.check_rounded : Icons.add_task_outlined,
-                  color: marked ? Colors.green : orange,
+                  marked ? statusIcon(record!.status) : Icons.add_task_outlined,
+                  color: marked ? (record!.status == AttendanceStatus.absent ? Colors.red : Colors.green) : orange,
                 ),
               ),
-              const SizedBox(width: 13),
+              const SizedBox(width: 16),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
                       marked ? statusText(record!.status) : 'No attendance recorded',
-                      style: const TextStyle(fontWeight: FontWeight.w800, color: navy),
+                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16, color: navy),
                     ),
-                    const SizedBox(height: 3),
+                    const SizedBox(height: 2),
                     Text(
                       marked
-                          ? '${record!.actualUnits.toStringAsFixed(1)}h recorded today'
+                          ? '${record!.actualUnits.toStringAsFixed(1)} / ${record!.expectedUnits.toStringAsFixed(1)}$unitLabel today'
                           : 'Tap to mark your attendance',
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF667085)),
+                      style: const TextStyle(fontSize: 14, color: Color(0xFF667085)),
                     ),
                   ],
                 ),
               ),
-              Text(
-                marked ? 'Edit' : 'Mark',
-                style: const TextStyle(fontWeight: FontWeight.w800, color: navy),
+              const Text(
+                'Edit',
+                style: TextStyle(fontWeight: FontWeight.w800, color: navy),
               ),
-              const SizedBox(width: 2),
+              const SizedBox(width: 4),
               const Icon(Icons.chevron_right_rounded, color: navy),
             ],
           ),
@@ -569,28 +653,86 @@ class _ActivityRow extends StatelessWidget {
 class CalendarPage extends StatelessWidget {
   const CalendarPage({super.key, required this.controller});
   final AttendanceController controller;
+
   @override
   Widget build(BuildContext context) => AnimatedBuilder(animation: controller, builder: (_, __) {
-    final now = DateTime.now(); final first = DateTime(now.year, now.month, 1); final offset = first.weekday % 7; final total = DateUtils.getDaysInMonth(now.year, now.month);
+    final now = DateTime.now(); 
+    final first = DateTime(now.year, now.month, 1); 
+    final offset = (first.weekday % 7); 
+    final total = DateUtils.getDaysInMonth(now.year, now.month);
+    
     return ListView(padding: const EdgeInsets.fromLTRB(20, 16, 20, 112), children: [
       const Text('Calendar', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: navy)),
-      const SizedBox(height: 4), Text('${monthName(now.month)} ${now.year} - stored on this device', style: const TextStyle(color: Color(0xFF667085))), const SizedBox(height: 20),
+      const SizedBox(height: 4), 
+      Text('${monthName(now.month)} ${now.year} - stored on this device', style: const TextStyle(color: Color(0xFF667085))), 
+      const SizedBox(height: 20),
+      if (!DevelopmentAttendanceRepository.isHolidayCalendarConfigured)
+        _HolidayWarningCard(),
+      const SizedBox(height: 12),
       Card(child: Padding(padding: const EdgeInsets.all(14), child: GridView.builder(shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), itemCount: offset + total, gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7), itemBuilder: (_, index) {
         if (index < offset) return const SizedBox();
-        final date = DateTime(now.year, now.month, index - offset + 1); final record = controller.recordFor(date);
-        return InkWell(onTap: () => showMarkAttendance(context, controller), child: Container(margin: const EdgeInsets.all(4), decoration: BoxDecoration(borderRadius: BorderRadius.circular(14), border: DateUtils.isSameDay(date, now) ? Border.all(color: navy, width: 2) : null, color: record == null ? Colors.transparent : statusColor(record.status).withValues(alpha: .12)), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [Text('${date.day}'), if (record != null) Icon(statusIcon(record.status), color: statusColor(record.status), size: 14)])));
+        final date = DateTime(now.year, now.month, index - offset + 1); 
+        final record = controller.recordFor(date);
+        final isToday = DateUtils.isSameDay(date, now);
+        
+        return InkWell(
+          onTap: () => showMarkAttendance(context, controller, date: date), 
+          borderRadius: BorderRadius.circular(14),
+          child: Container(
+            margin: const EdgeInsets.all(4), 
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14), 
+              border: isToday ? Border.all(color: navy, width: 2) : null, 
+              color: record == null ? Colors.transparent : statusColor(record.status).withValues(alpha: .12)
+            ), 
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center, 
+              children: [
+                Text('${date.day}', style: TextStyle(fontWeight: isToday ? FontWeight.bold : FontWeight.normal)), 
+                if (record != null) Icon(statusIcon(record.status), color: statusColor(record.status), size: 14)
+              ]
+            )
+          )
+        );
       }))),
-      const SizedBox(height: 18), const Wrap(spacing: 12, children: [Text('Green: full'), Text('Amber: partial'), Text('Red: absent'), Text('Blue: holiday')]),
+      const SizedBox(height: 18), 
+      const Wrap(spacing: 12, children: [
+        _LegendItem(label: 'Full', color: Colors.green),
+        _LegendItem(label: 'Half', color: Color(0xFFF59E0B)),
+        _LegendItem(label: 'Absent', color: Color(0xFFDC2626)),
+        _LegendItem(label: 'Holiday', color: Color(0xFF2563EB)),
+      ]),
     ]);
   });
 }
 
-class InsightPage extends StatelessWidget {
-  const InsightPage({super.key, required this.controller}); final AttendanceController controller;
+class _LegendItem extends StatelessWidget {
+  const _LegendItem({required this.label, required this.color});
+  final String label;
+  final Color color;
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(animation: controller, builder: (_, __) { final s = controller.summary; if (s == null) return const Center(child: CircularProgressIndicator()); return ListView(padding: const EdgeInsets.fromLTRB(20, 16, 20, 112), children: [const Text('Insights', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: navy)), const SizedBox(height: 20), Row(children: [Metric(value: '${s.percent.toStringAsFixed(1)}%', label: 'Current'), const SizedBox(width: 12), Metric(value: '${controller.policy.minimumPercent.toStringAsFixed(0)}%', label: 'Required')]), const SizedBox(height: 14), AdviceCard(summary: s, policy: controller.policy), const SizedBox(height: 14), Card(child: ListTile(leading: const Icon(Icons.rule_outlined, color: navy), title: const Text('Current policy'), subtitle: Text('Hours - full day ${controller.policy.fullUnit.toStringAsFixed(0)}h - version ${controller.policy.version}')))]); });
+  Widget build(BuildContext context) => Row(mainAxisSize: MainAxisSize.min, children: [
+    Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+    const SizedBox(width: 4),
+    Text(label, style: const TextStyle(fontSize: 12, color: Color(0xFF667085))),
+  ]);
 }
-class Metric extends StatelessWidget { const Metric({super.key, required this.value, required this.label}); final String value; final String label; @override Widget build(BuildContext context) => Expanded(child: Card(child: Padding(padding: const EdgeInsets.all(18), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text(value, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: navy)), Text(label, style: const TextStyle(color: Color(0xFF667085)))])))); }
+
+class _HolidayWarningCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) => Container(
+    margin: const EdgeInsets.only(bottom: 16),
+    padding: const EdgeInsets.all(16),
+    decoration: BoxDecoration(color: const Color(0xFFFFF4EC), borderRadius: BorderRadius.circular(16)),
+    child: Row(children: [
+      const Icon(Icons.calendar_today_outlined, color: orange),
+      const SizedBox(width: 12),
+      const Expanded(child: Text('Holiday calendar not configured for this organization.', style: TextStyle(color: navy, fontSize: 13, fontWeight: FontWeight.w600))),
+      TextButton(onPressed: () {}, child: const Text('Add'))
+    ]),
+  );
+}
+
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key, required this.onLogout});
   final VoidCallback onLogout;
@@ -626,8 +768,13 @@ class ProfilePage extends StatelessWidget {
       ]);
 }
 
-Future<void> showMarkAttendance(BuildContext context, AttendanceController controller) {
-  AttendanceStatus selected = AttendanceStatus.full; double hours = controller.policy.fullUnit;
+Future<void> showMarkAttendance(BuildContext context, AttendanceController controller, {DateTime? date}) {
+  final targetDate = date ?? DateTime.now();
+  final existing = controller.recordFor(targetDate);
+  
+  AttendanceStatus selected = existing?.status ?? AttendanceStatus.full; 
+  double hours = existing?.actualUnits ?? controller.policy.fullUnit;
+  
   return showModalBottomSheet(
     context: context, 
     isScrollControlled: true, 
@@ -640,9 +787,12 @@ Future<void> showMarkAttendance(BuildContext context, AttendanceController contr
             mainAxisSize: MainAxisSize.min, 
             crossAxisAlignment: CrossAxisAlignment.start, 
             children: [
-              const Text('Mark attendance', style: TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: navy)), 
-              const SizedBox(height: 8), 
-              const Text('Saved locally first. It will sync when you are online.'), 
+              Text('Mark attendance', style: const TextStyle(fontSize: 23, fontWeight: FontWeight.w800, color: navy)), 
+              const SizedBox(height: 4),
+              Text(
+                '${targetDate.day} ${monthName(targetDate.month)} ${targetDate.year}',
+                style: const TextStyle(color: Color(0xFF667085), fontWeight: FontWeight.w600),
+              ),
               const SizedBox(height: 18), 
               Wrap(
                 spacing: 8, 
@@ -660,24 +810,37 @@ Future<void> showMarkAttendance(BuildContext context, AttendanceController contr
                     )
                 ]
               ), 
-              if (selected == AttendanceStatus.partial) 
+              if (selected == AttendanceStatus.partial) ...[
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Actual hours', style: TextStyle(fontWeight: FontWeight.w700, color: navy)),
+                    Text('${hours.toStringAsFixed(1)}h / ${controller.policy.fullUnit}h', style: const TextStyle(fontWeight: FontWeight.w800, color: orange)),
+                  ],
+                ),
                 Slider(
                   value: hours, 
                   max: controller.policy.fullUnit, 
-                  divisions: 14, 
+                  divisions: (controller.policy.fullUnit * 2).toInt(), 
                   activeColor: orange, 
                   onChanged: (value) => setSheet(() => hours = value)
-                ), 
-              const SizedBox(height: 12), 
+                ),
+              ],
+              const SizedBox(height: 24), 
               SizedBox(
                 width: double.infinity, 
                 child: FilledButton(
                   onPressed: () async { 
-                    await controller.mark(selected, actualUnits: hours); 
+                    await controller.mark(selected, actualUnits: hours, date: targetDate); 
                     if (sheet.mounted) Navigator.pop(sheet); 
                   }, 
-                  style: FilledButton.styleFrom(backgroundColor: navy), 
-                  child: const Text('Save attendance')
+                  style: FilledButton.styleFrom(
+                    backgroundColor: navy,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  ), 
+                  child: const Text('Save attendance', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold))
                 )
               )
             ]
@@ -688,7 +851,33 @@ Future<void> showMarkAttendance(BuildContext context, AttendanceController contr
   );
 }
 
-String statusText(AttendanceStatus status) => switch (status) { AttendanceStatus.full => 'Full', AttendanceStatus.half => 'Half day', AttendanceStatus.partial => 'Partial hours', AttendanceStatus.absent => 'Absent', AttendanceStatus.holiday => 'Holiday', AttendanceStatus.none => 'Not recorded' };
-Color statusColor(AttendanceStatus status) => switch (status) { AttendanceStatus.full => Colors.green, AttendanceStatus.half || AttendanceStatus.partial => const Color(0xFFF59E0B), AttendanceStatus.absent => const Color(0xFFDC2626), AttendanceStatus.holiday => const Color(0xFF2563EB), AttendanceStatus.none => Colors.grey };
-IconData statusIcon(AttendanceStatus status) => switch (status) { AttendanceStatus.full => Icons.check_rounded, AttendanceStatus.half || AttendanceStatus.partial => Icons.timelapse_rounded, AttendanceStatus.absent => Icons.close_rounded, AttendanceStatus.holiday => Icons.celebration_outlined, AttendanceStatus.none => Icons.remove_rounded };
+String statusText(AttendanceStatus status) => switch (status) { 
+  AttendanceStatus.full => 'Full', 
+  AttendanceStatus.half => 'Half day', 
+  AttendanceStatus.partial => 'Partial hours', 
+  AttendanceStatus.absent => 'Absent', 
+  AttendanceStatus.holiday => 'Holiday', 
+  AttendanceStatus.leave => 'On Leave',
+  AttendanceStatus.weeklyOff => 'Weekly Off',
+  AttendanceStatus.none => 'Not recorded' 
+};
+
+Color statusColor(AttendanceStatus status) => switch (status) { 
+  AttendanceStatus.full => Colors.green, 
+  AttendanceStatus.half || AttendanceStatus.partial => const Color(0xFFF59E0B), 
+  AttendanceStatus.absent => const Color(0xFFDC2626), 
+  AttendanceStatus.holiday || AttendanceStatus.leave => const Color(0xFF2563EB), 
+  AttendanceStatus.weeklyOff => const Color(0xFF98A2B3),
+  AttendanceStatus.none => Colors.grey 
+};
+
+IconData statusIcon(AttendanceStatus status) => switch (status) { 
+  AttendanceStatus.full => Icons.check_rounded, 
+  AttendanceStatus.half || AttendanceStatus.partial => Icons.timelapse_rounded, 
+  AttendanceStatus.absent => Icons.close_rounded, 
+  AttendanceStatus.holiday => Icons.celebration_outlined, 
+  AttendanceStatus.leave => Icons.work_off_outlined,
+  AttendanceStatus.weeklyOff => Icons.weekend_outlined,
+  AttendanceStatus.none => Icons.remove_rounded 
+};
 String monthName(int month) => const ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'][month - 1];

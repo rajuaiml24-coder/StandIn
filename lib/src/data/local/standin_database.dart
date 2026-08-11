@@ -21,10 +21,14 @@ class OrganizationPolicyRows extends Table {
   TextColumn get organizationId => text()();
   IntColumn get version => integer()();
   DateTimeColumn get effectiveFrom => dateTime()();
-  RealColumn get minimumPercent => real()();
+  TextColumn get state => text()();
+  TextColumn get evaluationPeriod => text()();
+  RealColumn get minimumPercent => real().nullable()();
   TextColumn get calculationBasis => text()();
   RealColumn get fullUnit => real()();
   RealColumn get halfUnit => real()();
+  DateTimeColumn get startDate => dateTime().nullable()();
+  DateTimeColumn get endDate => dateTime().nullable()();
   DateTimeColumn get updatedAt => dateTime()();
   @override Set<Column<Object>> get primaryKey => {policyId};
 }

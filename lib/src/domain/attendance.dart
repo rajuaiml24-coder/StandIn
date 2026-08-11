@@ -1,7 +1,9 @@
-enum AttendanceStatus { full, half, partial, absent, holiday, none }
+enum AttendanceStatus { full, half, partial, absent, holiday, none, leave, weeklyOff }
 enum CalculationBasis { hours, days, periods }
 enum AppRole { student, employee }
 enum OrganizationType { college, company }
+enum PolicyState { draft, community, confirmed, official }
+enum EvaluationPeriod { weekly, monthly, quarterly, semester, academicYear, halfYear, custom }
 
 class UserProfile {
   const UserProfile({
@@ -52,7 +54,9 @@ class Organization {
     required this.type,
     this.branch,
     this.isVerified = false,
+    this.isHolidayCalendarConfigured = false,
     this.followerCount = 0,
+    this.confidenceScore = 0.0,
   });
 
   final String id;
@@ -60,7 +64,9 @@ class Organization {
   final OrganizationType type;
   final String? branch;
   final bool isVerified;
+  final bool isHolidayCalendarConfigured;
   final int followerCount;
+  final double confidenceScore;
 }
 
 class AttendancePolicy {
@@ -68,19 +74,31 @@ class AttendancePolicy {
     required this.id,
     required this.version,
     required this.effectiveFrom,
-    required this.minimumPercent,
+    required this.state,
+    required this.evaluationPeriod,
+    this.minimumPercent,
     required this.basis,
     required this.fullUnit,
     required this.halfUnit,
+    this.weeklyOffs = const [7], // Default Sunday
+    this.startDate,
+    this.endDate,
   });
 
   final String id;
   final int version;
   final DateTime effectiveFrom;
-  final double minimumPercent;
+  final PolicyState state;
+  final EvaluationPeriod evaluationPeriod;
+  final double? minimumPercent;
   final CalculationBasis basis;
   final double fullUnit;
   final double halfUnit;
+  final List<int> weeklyOffs;
+  final DateTime? startDate;
+  final DateTime? endDate;
+
+  bool get isSure => minimumPercent != null;
 }
 
 class AttendanceRecord {
@@ -90,6 +108,7 @@ class AttendanceRecord {
     required this.actualUnits,
     required this.expectedUnits,
     this.pendingSync = false,
+    this.source = 'manual',
   });
 
   final DateTime date;
@@ -97,6 +116,7 @@ class AttendanceRecord {
   final double actualUnits;
   final double expectedUnits;
   final bool pendingSync;
+  final String source;
 
   AttendanceRecord copyWith({bool? pendingSync}) => AttendanceRecord(
         date: date,
@@ -104,6 +124,7 @@ class AttendanceRecord {
         actualUnits: actualUnits,
         expectedUnits: expectedUnits,
         pendingSync: pendingSync ?? this.pendingSync,
+        source: source,
       );
 }
 
@@ -115,6 +136,11 @@ class AttendanceSummary {
     required this.isSafe,
     required this.safeToMiss,
     required this.unitsToRecover,
+    required this.periodLabel,
+    this.totalExpectedInPeriod = 0,
+    this.isPolicyIncomplete = false,
+    this.isEstimation = false,
+    this.recoveryMessage = '',
   });
 
   final double actual;
@@ -123,4 +149,9 @@ class AttendanceSummary {
   final bool isSafe;
   final double safeToMiss;
   final double unitsToRecover;
+  final String periodLabel;
+  final double totalExpectedInPeriod;
+  final bool isPolicyIncomplete;
+  final bool isEstimation;
+  final String recoveryMessage;
 }

@@ -1,24 +1,28 @@
-# Organization Setup Onboarding Walkthrough
+# PolicyEngine Logic Upgrade Walkthrough
 
-I have completed the implementation of the full Organization Setup flow within the onboarding process. This implementation ensures a smooth transition from a generic "Follower" to a potentially "Verified Member" in the future, while maintaining strict data privacy and validation standards.
+I have completed a significant upgrade to the `PolicyEngine` to support explicit academic periods, holiday calendar awareness, and improved prospective calculations.
 
 ## Key Accomplishments
 
-### 1. Flexible Organization Onboarding
-- **Search & Follow**: Users can search for existing colleges or companies and follow their verified policies instantly.
-- **Manual Creation**: If an organization is not found, users can create a minimal profile.
-    - **Draft Policy**: As requested, manually created organizations are initialized with a "Draft" status. Users provide their own initial target percentage and full-day hours, which are clearly marked as non-official.
-- **Identification Mapping**: Integrated a dedicated step to capture **Roll Numbers** (Students) or **Employee IDs** (Employees). This data is stored locally to facilitate future verified membership linking.
+### 1. Explicit Academic & Custom Periods
+- **No More Assumptions**: Removed default date ranges for Semester and Academic Year periods. They now strictly use the `startDate` and `endDate` defined in the `AttendancePolicy`.
+- **Incomplete Handling**: If these required dates are missing, the engine flags the summary as `isPolicyIncomplete` and returns neutral results for prospective math.
 
-### 2. Enhanced UI & Responsiveness
-- **`OrganizationCreatePage`**: A clean, minimal form for manual entry with built-in validation.
-- **`OrganizationIdPage`**: Adapts its labels and hints based on the user's role (Student vs. Employee).
-- **`PolicyPreviewPage`**: Updated to show a "DRAFT" badge for community-created organizations and a "Verified" icon for official ones.
-- **Responsiveness**: All new screens follow the `SingleChildScrollView` + `IntrinsicHeight` pattern to prevent overflows on all device sizes.
+### 2. Holiday Calendar Awareness
+- **Estimation Flag**: Added an `isEstimation` flag to `AttendanceSummary`.
+- **Conditional Projections**: When the organization's holiday calendar is not fully configured (passed as `isHolidayCalendarConfigured`), the `safeToMiss` and `unitsToRecover` projections are marked as estimates.
+- **Historical Durability**: The user's actual attendance percentage remains available and accurate based on historical records, even if future projections are estimated.
 
-### 3. Robust Domain & Validation
-- **Centralized Logic**: Added `IdValidator` and `OrganizationNameValidator` to the testable domain layer.
-- **Domain Evolution**: Updated `UserProfile` and `Organization` models to support the new metadata (types, identification numbers, verification states).
+### 3. Prospective Projection Logic
+- **`safeToMiss`**: Calculates the total units a user can miss *from the remaining working days* in the current period while staying at or above target.
+- **`unitsToRecover`**: Calculates the exact number of units needed to bring the current percentage up to target relative to today.
+
+### 4. Human-Friendly Messaging
+- **Recovery Messages**: Generated dynamic, unit-aware text such as:
+    - "Attend the next 6 classes"
+    - "Attend the next 3 working days"
+    - "Attend the next 14 hours"
+- **Precision**: Handled rounding gracefully (e.g., "32 hours" instead of "32.0 hours").
 
 ## Verification Results
 
@@ -26,22 +30,19 @@ I have completed the implementation of the full Organization Setup flow within t
 | Command | Result |
 | :--- | :--- |
 | `flutter analyze` | **Passed** (No issues found) |
-| `flutter test` | **Passed** (28 tests including new validator cases) |
+| `flutter test` | **Passed** (42 tests covering all new logic and boundaries) |
 | `flutter build web` | **Success** (Built successfully) |
 
 ## Files Modified/Created
 
 | File | Change Type | Description |
 | :--- | :--- | :--- |
-| [attendance.dart](file:///C:/StandIn/lib/src/domain/attendance.dart) | MODIFY | Updated User and Organization domain models. |
-| [validators.dart](file:///C:/StandIn/lib/src/domain/validators.dart) | MODIFY | Added ID and Org Name validators. |
-| [onboarding_controller.dart](file:///C:/StandIn/lib/src/features/onboarding/onboarding_controller.dart) | MODIFY | Expanded state machine for the full flow. |
-| [organization_create_page.dart](file:///C:/StandIn/lib/src/features/onboarding/organization_create_page.dart) | **NEW** | UI for manual organization creation. |
-| [organization_id_page.dart](file:///C:/StandIn/lib/src/features/onboarding/organization_id_page.dart) | **NEW** | UI for capturing identification numbers. |
-| [organization_search_page.dart](file:///C:/StandIn/lib/src/features/onboarding/organization_search_page.dart) | MODIFY | Enhanced search with branch and "Create New" option. |
-| [policy_preview_page.dart](file:///C:/StandIn/lib/src/features/onboarding/policy_preview_page.dart) | MODIFY | Added support for Draft vs Verified states. |
-| [app.dart](file:///C:/StandIn/lib/src/app.dart) | MODIFY | Integrated new pages into the onboarding flow. |
-| [validators_test.dart](file:///C:/StandIn/test/validators_test.dart) | MODIFY | Added unit tests for new validators. |
+| [attendance.dart](file:///C:/StandIn/lib/src/domain/attendance.dart) | MODIFY | Added `startDate`/`endDate` to Policy and `isEstimation`/`recoveryMessage` to Summary. |
+| [policy_engine.dart](file:///C:/StandIn/lib/src/domain/policy_engine.dart) | MODIFY | Comprehensive logic upgrade for periods and projections. |
+| [standin_database.dart](file:///C:/StandIn/lib/src/data/local/standin_database.dart) | MODIFY | Updated Drift schema for persistent period dates. |
+| [policy_engine_test.dart](file:///C:/StandIn/test/policy_engine_test.dart) | MODIFY | Expanded to 42 tests covering all edge cases. |
 
-> [!IMPORTANT]
-> **Draft Policies**: Community-created organizations explicitly show: *"This policy is personal and not official until verified."* to maintain trust and transparency.
+## Final PolicyEngine Assumptions
+1. **Capacity**: The engine calculates total period capacity by assuming all days within the `startDate` to `endDate` range are working days, minus `weeklyOffs`, unless an explicit holiday record exists.
+2. **"Today"**: If today has no attendance record, it is treated as a future working unit for prospective calculations.
+3. **Unit Consistency**: All records in a period must use the same unit (e.g., all hours or all days) for mathematical consistency.

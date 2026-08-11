@@ -97,10 +97,14 @@ class _OrganizationSearchPageState extends State<OrganizationSearchPage> {
                           id: '${org.id}-p1',
                           version: 1,
                           effectiveFrom: DateTime(2026, 8, 1),
+                          state: org.isVerified ? PolicyState.official : PolicyState.community,
+                          evaluationPeriod: EvaluationPeriod.monthly,
                           minimumPercent: 75,
                           basis: CalculationBasis.hours,
                           fullUnit: 7,
                           halfUnit: 3.5,
+                          startDate: DateTime(2026, 1, 1), // Mock dates for existing org
+                          endDate: DateTime(2026, 6, 30),
                         );
                         widget.controller.selectOrganization(org, policy);
                       },

@@ -10,7 +10,12 @@ class AttendanceController extends ChangeNotifier {
   AttendanceController(this._repository, this._engine, this.policy) {
     _subscription = _repository.watchRecords().listen((records) {
       this.records = records;
-      summary = _engine.summarize(policy, records);
+      summary = _engine.summarize(
+        policy, 
+        records, 
+        DateTime.now(),
+        isHolidayCalendarConfigured: false, // Default for now
+      );
       notifyListeners();
     });
   }

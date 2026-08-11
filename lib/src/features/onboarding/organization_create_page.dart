@@ -143,10 +143,14 @@ class _OrganizationCreatePageState extends State<OrganizationCreatePage> {
                               id: 'draft-${DateTime.now().millisecondsSinceEpoch}',
                               version: 0,
                               effectiveFrom: DateTime.now(),
+                              state: PolicyState.draft,
+                              evaluationPeriod: widget.controller.role == AppRole.student ? EvaluationPeriod.semester : EvaluationPeriod.monthly,
                               minimumPercent: double.tryParse(_targetController.text) ?? 75,
                               basis: CalculationBasis.hours,
                               fullUnit: double.tryParse(_hoursController.text) ?? 7,
                               halfUnit: (double.tryParse(_hoursController.text) ?? 7) / 2,
+                              startDate: null, // Will be configured later or in full form
+                              endDate: null,
                             );
                             widget.controller.createOrganization(_nameController.text, _branchController.text, policy);
                           } : null,

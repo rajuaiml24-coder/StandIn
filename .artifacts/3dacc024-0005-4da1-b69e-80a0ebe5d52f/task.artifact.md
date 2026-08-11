@@ -1,8 +1,13 @@
-- [ ] Update domain and validators in `attendance.dart` and `validators.dart`
-- [ ] Update `OnboardingController` with new steps and state
-- [ ] Create `OrganizationCreatePage`
-- [ ] Create `OrganizationIdPage`
-- [ ] Enhance `OrganizationSearchPage` and `PolicyPreviewPage`
-- [ ] Integrate into `StandInApp` in `app.dart`
-- [ ] Add unit tests for new validators
-- [ ] Final verification: `flutter analyze`, `flutter test`, `flutter build web`
+- [ ] Update Domain models in `lib/src/domain/attendance.dart`
+    - [ ] Add `startDate`, `endDate` to `AttendancePolicy`
+    - [ ] Add `isEstimation`, `recoveryMessage` to `AttendanceSummary`
+- [ ] Update Drift schema in `lib/src/data/local/standin_database.dart`
+    - [ ] Add `startDate`, `endDate` to `OrganizationPolicyRows`
+    - [ ] Regenerate Drift code
+- [ ] Upgrade `PolicyEngine` in `lib/src/domain/policy_engine.dart`
+    - [ ] Refine `summarize` signature and logic
+    - [ ] Implement explicit date handling for periods
+    - [ ] Add `recoveryMessage` generator
+- [ ] Update `AttendanceController` and `OrganizationPolicyRepository`
+- [ ] Update and expand `test/policy_engine_test.dart`
+- [ ] Final verification: Analyze, Test, Build Web

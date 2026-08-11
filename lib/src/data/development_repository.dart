@@ -5,6 +5,7 @@ import 'attendance_repository.dart';
 
 /// Local-only seed data used until Firebase and Drift platform configuration is supplied.
 class DevelopmentAttendanceRepository implements AttendanceRepository {
+  static bool isHolidayCalendarConfigured = false;
   final _records = <AttendanceRecord>[];
   final _changes = StreamController<List<AttendanceRecord>>.broadcast();
 

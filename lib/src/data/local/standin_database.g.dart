@@ -519,12 +519,23 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
   late final GeneratedColumn<DateTime> effectiveFrom =
       GeneratedColumn<DateTime>('effective_from', aliasedName, false,
           type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _stateMeta = const VerificationMeta('state');
+  @override
+  late final GeneratedColumn<String> state = GeneratedColumn<String>(
+      'state', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _evaluationPeriodMeta =
+      const VerificationMeta('evaluationPeriod');
+  @override
+  late final GeneratedColumn<String> evaluationPeriod = GeneratedColumn<String>(
+      'evaluation_period', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
   static const VerificationMeta _minimumPercentMeta =
       const VerificationMeta('minimumPercent');
   @override
   late final GeneratedColumn<double> minimumPercent = GeneratedColumn<double>(
-      'minimum_percent', aliasedName, false,
-      type: DriftSqlType.double, requiredDuringInsert: true);
+      'minimum_percent', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
   static const VerificationMeta _calculationBasisMeta =
       const VerificationMeta('calculationBasis');
   @override
@@ -543,6 +554,18 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
   late final GeneratedColumn<double> halfUnit = GeneratedColumn<double>(
       'half_unit', aliasedName, false,
       type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _startDateMeta =
+      const VerificationMeta('startDate');
+  @override
+  late final GeneratedColumn<DateTime> startDate = GeneratedColumn<DateTime>(
+      'start_date', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _endDateMeta =
+      const VerificationMeta('endDate');
+  @override
+  late final GeneratedColumn<DateTime> endDate = GeneratedColumn<DateTime>(
+      'end_date', aliasedName, true,
+      type: DriftSqlType.dateTime, requiredDuringInsert: false);
   static const VerificationMeta _updatedAtMeta =
       const VerificationMeta('updatedAt');
   @override
@@ -555,10 +578,14 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
         organizationId,
         version,
         effectiveFrom,
+        state,
+        evaluationPeriod,
         minimumPercent,
         calculationBasis,
         fullUnit,
         halfUnit,
+        startDate,
+        endDate,
         updatedAt
       ];
   @override
@@ -600,13 +627,25 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
     } else if (isInserting) {
       context.missing(_effectiveFromMeta);
     }
+    if (data.containsKey('state')) {
+      context.handle(
+          _stateMeta, state.isAcceptableOrUnknown(data['state']!, _stateMeta));
+    } else if (isInserting) {
+      context.missing(_stateMeta);
+    }
+    if (data.containsKey('evaluation_period')) {
+      context.handle(
+          _evaluationPeriodMeta,
+          evaluationPeriod.isAcceptableOrUnknown(
+              data['evaluation_period']!, _evaluationPeriodMeta));
+    } else if (isInserting) {
+      context.missing(_evaluationPeriodMeta);
+    }
     if (data.containsKey('minimum_percent')) {
       context.handle(
           _minimumPercentMeta,
           minimumPercent.isAcceptableOrUnknown(
               data['minimum_percent']!, _minimumPercentMeta));
-    } else if (isInserting) {
-      context.missing(_minimumPercentMeta);
     }
     if (data.containsKey('calculation_basis')) {
       context.handle(
@@ -627,6 +666,14 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
           halfUnit.isAcceptableOrUnknown(data['half_unit']!, _halfUnitMeta));
     } else if (isInserting) {
       context.missing(_halfUnitMeta);
+    }
+    if (data.containsKey('start_date')) {
+      context.handle(_startDateMeta,
+          startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta));
+    }
+    if (data.containsKey('end_date')) {
+      context.handle(_endDateMeta,
+          endDate.isAcceptableOrUnknown(data['end_date']!, _endDateMeta));
     }
     if (data.containsKey('updated_at')) {
       context.handle(_updatedAtMeta,
@@ -651,14 +698,22 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
           .read(DriftSqlType.int, data['${effectivePrefix}version'])!,
       effectiveFrom: attachedDatabase.typeMapping.read(
           DriftSqlType.dateTime, data['${effectivePrefix}effective_from'])!,
-      minimumPercent: attachedDatabase.typeMapping.read(
-          DriftSqlType.double, data['${effectivePrefix}minimum_percent'])!,
+      state: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}state'])!,
+      evaluationPeriod: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}evaluation_period'])!,
+      minimumPercent: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}minimum_percent']),
       calculationBasis: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}calculation_basis'])!,
       fullUnit: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}full_unit'])!,
       halfUnit: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}half_unit'])!,
+      startDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}start_date']),
+      endDate: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}end_date']),
       updatedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
     );
@@ -676,20 +731,28 @@ class OrganizationPolicyRow extends DataClass
   final String organizationId;
   final int version;
   final DateTime effectiveFrom;
-  final double minimumPercent;
+  final String state;
+  final String evaluationPeriod;
+  final double? minimumPercent;
   final String calculationBasis;
   final double fullUnit;
   final double halfUnit;
+  final DateTime? startDate;
+  final DateTime? endDate;
   final DateTime updatedAt;
   const OrganizationPolicyRow(
       {required this.policyId,
       required this.organizationId,
       required this.version,
       required this.effectiveFrom,
-      required this.minimumPercent,
+      required this.state,
+      required this.evaluationPeriod,
+      this.minimumPercent,
       required this.calculationBasis,
       required this.fullUnit,
       required this.halfUnit,
+      this.startDate,
+      this.endDate,
       required this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -698,10 +761,20 @@ class OrganizationPolicyRow extends DataClass
     map['organization_id'] = Variable<String>(organizationId);
     map['version'] = Variable<int>(version);
     map['effective_from'] = Variable<DateTime>(effectiveFrom);
-    map['minimum_percent'] = Variable<double>(minimumPercent);
+    map['state'] = Variable<String>(state);
+    map['evaluation_period'] = Variable<String>(evaluationPeriod);
+    if (!nullToAbsent || minimumPercent != null) {
+      map['minimum_percent'] = Variable<double>(minimumPercent);
+    }
     map['calculation_basis'] = Variable<String>(calculationBasis);
     map['full_unit'] = Variable<double>(fullUnit);
     map['half_unit'] = Variable<double>(halfUnit);
+    if (!nullToAbsent || startDate != null) {
+      map['start_date'] = Variable<DateTime>(startDate);
+    }
+    if (!nullToAbsent || endDate != null) {
+      map['end_date'] = Variable<DateTime>(endDate);
+    }
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
   }
@@ -712,10 +785,20 @@ class OrganizationPolicyRow extends DataClass
       organizationId: Value(organizationId),
       version: Value(version),
       effectiveFrom: Value(effectiveFrom),
-      minimumPercent: Value(minimumPercent),
+      state: Value(state),
+      evaluationPeriod: Value(evaluationPeriod),
+      minimumPercent: minimumPercent == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minimumPercent),
       calculationBasis: Value(calculationBasis),
       fullUnit: Value(fullUnit),
       halfUnit: Value(halfUnit),
+      startDate: startDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(startDate),
+      endDate: endDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(endDate),
       updatedAt: Value(updatedAt),
     );
   }
@@ -728,10 +811,14 @@ class OrganizationPolicyRow extends DataClass
       organizationId: serializer.fromJson<String>(json['organizationId']),
       version: serializer.fromJson<int>(json['version']),
       effectiveFrom: serializer.fromJson<DateTime>(json['effectiveFrom']),
-      minimumPercent: serializer.fromJson<double>(json['minimumPercent']),
+      state: serializer.fromJson<String>(json['state']),
+      evaluationPeriod: serializer.fromJson<String>(json['evaluationPeriod']),
+      minimumPercent: serializer.fromJson<double?>(json['minimumPercent']),
       calculationBasis: serializer.fromJson<String>(json['calculationBasis']),
       fullUnit: serializer.fromJson<double>(json['fullUnit']),
       halfUnit: serializer.fromJson<double>(json['halfUnit']),
+      startDate: serializer.fromJson<DateTime?>(json['startDate']),
+      endDate: serializer.fromJson<DateTime?>(json['endDate']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -743,10 +830,14 @@ class OrganizationPolicyRow extends DataClass
       'organizationId': serializer.toJson<String>(organizationId),
       'version': serializer.toJson<int>(version),
       'effectiveFrom': serializer.toJson<DateTime>(effectiveFrom),
-      'minimumPercent': serializer.toJson<double>(minimumPercent),
+      'state': serializer.toJson<String>(state),
+      'evaluationPeriod': serializer.toJson<String>(evaluationPeriod),
+      'minimumPercent': serializer.toJson<double?>(minimumPercent),
       'calculationBasis': serializer.toJson<String>(calculationBasis),
       'fullUnit': serializer.toJson<double>(fullUnit),
       'halfUnit': serializer.toJson<double>(halfUnit),
+      'startDate': serializer.toJson<DateTime?>(startDate),
+      'endDate': serializer.toJson<DateTime?>(endDate),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -756,20 +847,29 @@ class OrganizationPolicyRow extends DataClass
           String? organizationId,
           int? version,
           DateTime? effectiveFrom,
-          double? minimumPercent,
+          String? state,
+          String? evaluationPeriod,
+          Value<double?> minimumPercent = const Value.absent(),
           String? calculationBasis,
           double? fullUnit,
           double? halfUnit,
+          Value<DateTime?> startDate = const Value.absent(),
+          Value<DateTime?> endDate = const Value.absent(),
           DateTime? updatedAt}) =>
       OrganizationPolicyRow(
         policyId: policyId ?? this.policyId,
         organizationId: organizationId ?? this.organizationId,
         version: version ?? this.version,
         effectiveFrom: effectiveFrom ?? this.effectiveFrom,
-        minimumPercent: minimumPercent ?? this.minimumPercent,
+        state: state ?? this.state,
+        evaluationPeriod: evaluationPeriod ?? this.evaluationPeriod,
+        minimumPercent:
+            minimumPercent.present ? minimumPercent.value : this.minimumPercent,
         calculationBasis: calculationBasis ?? this.calculationBasis,
         fullUnit: fullUnit ?? this.fullUnit,
         halfUnit: halfUnit ?? this.halfUnit,
+        startDate: startDate.present ? startDate.value : this.startDate,
+        endDate: endDate.present ? endDate.value : this.endDate,
         updatedAt: updatedAt ?? this.updatedAt,
       );
   OrganizationPolicyRow copyWithCompanion(
@@ -783,6 +883,10 @@ class OrganizationPolicyRow extends DataClass
       effectiveFrom: data.effectiveFrom.present
           ? data.effectiveFrom.value
           : this.effectiveFrom,
+      state: data.state.present ? data.state.value : this.state,
+      evaluationPeriod: data.evaluationPeriod.present
+          ? data.evaluationPeriod.value
+          : this.evaluationPeriod,
       minimumPercent: data.minimumPercent.present
           ? data.minimumPercent.value
           : this.minimumPercent,
@@ -791,6 +895,8 @@ class OrganizationPolicyRow extends DataClass
           : this.calculationBasis,
       fullUnit: data.fullUnit.present ? data.fullUnit.value : this.fullUnit,
       halfUnit: data.halfUnit.present ? data.halfUnit.value : this.halfUnit,
+      startDate: data.startDate.present ? data.startDate.value : this.startDate,
+      endDate: data.endDate.present ? data.endDate.value : this.endDate,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -802,10 +908,14 @@ class OrganizationPolicyRow extends DataClass
           ..write('organizationId: $organizationId, ')
           ..write('version: $version, ')
           ..write('effectiveFrom: $effectiveFrom, ')
+          ..write('state: $state, ')
+          ..write('evaluationPeriod: $evaluationPeriod, ')
           ..write('minimumPercent: $minimumPercent, ')
           ..write('calculationBasis: $calculationBasis, ')
           ..write('fullUnit: $fullUnit, ')
           ..write('halfUnit: $halfUnit, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
@@ -817,10 +927,14 @@ class OrganizationPolicyRow extends DataClass
       organizationId,
       version,
       effectiveFrom,
+      state,
+      evaluationPeriod,
       minimumPercent,
       calculationBasis,
       fullUnit,
       halfUnit,
+      startDate,
+      endDate,
       updatedAt);
   @override
   bool operator ==(Object other) =>
@@ -830,10 +944,14 @@ class OrganizationPolicyRow extends DataClass
           other.organizationId == this.organizationId &&
           other.version == this.version &&
           other.effectiveFrom == this.effectiveFrom &&
+          other.state == this.state &&
+          other.evaluationPeriod == this.evaluationPeriod &&
           other.minimumPercent == this.minimumPercent &&
           other.calculationBasis == this.calculationBasis &&
           other.fullUnit == this.fullUnit &&
           other.halfUnit == this.halfUnit &&
+          other.startDate == this.startDate &&
+          other.endDate == this.endDate &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -843,10 +961,14 @@ class OrganizationPolicyRowsCompanion
   final Value<String> organizationId;
   final Value<int> version;
   final Value<DateTime> effectiveFrom;
-  final Value<double> minimumPercent;
+  final Value<String> state;
+  final Value<String> evaluationPeriod;
+  final Value<double?> minimumPercent;
   final Value<String> calculationBasis;
   final Value<double> fullUnit;
   final Value<double> halfUnit;
+  final Value<DateTime?> startDate;
+  final Value<DateTime?> endDate;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const OrganizationPolicyRowsCompanion({
@@ -854,10 +976,14 @@ class OrganizationPolicyRowsCompanion
     this.organizationId = const Value.absent(),
     this.version = const Value.absent(),
     this.effectiveFrom = const Value.absent(),
+    this.state = const Value.absent(),
+    this.evaluationPeriod = const Value.absent(),
     this.minimumPercent = const Value.absent(),
     this.calculationBasis = const Value.absent(),
     this.fullUnit = const Value.absent(),
     this.halfUnit = const Value.absent(),
+    this.startDate = const Value.absent(),
+    this.endDate = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -866,17 +992,22 @@ class OrganizationPolicyRowsCompanion
     required String organizationId,
     required int version,
     required DateTime effectiveFrom,
-    required double minimumPercent,
+    required String state,
+    required String evaluationPeriod,
+    this.minimumPercent = const Value.absent(),
     required String calculationBasis,
     required double fullUnit,
     required double halfUnit,
+    this.startDate = const Value.absent(),
+    this.endDate = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   })  : policyId = Value(policyId),
         organizationId = Value(organizationId),
         version = Value(version),
         effectiveFrom = Value(effectiveFrom),
-        minimumPercent = Value(minimumPercent),
+        state = Value(state),
+        evaluationPeriod = Value(evaluationPeriod),
         calculationBasis = Value(calculationBasis),
         fullUnit = Value(fullUnit),
         halfUnit = Value(halfUnit),
@@ -886,10 +1017,14 @@ class OrganizationPolicyRowsCompanion
     Expression<String>? organizationId,
     Expression<int>? version,
     Expression<DateTime>? effectiveFrom,
+    Expression<String>? state,
+    Expression<String>? evaluationPeriod,
     Expression<double>? minimumPercent,
     Expression<String>? calculationBasis,
     Expression<double>? fullUnit,
     Expression<double>? halfUnit,
+    Expression<DateTime>? startDate,
+    Expression<DateTime>? endDate,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -898,10 +1033,14 @@ class OrganizationPolicyRowsCompanion
       if (organizationId != null) 'organization_id': organizationId,
       if (version != null) 'version': version,
       if (effectiveFrom != null) 'effective_from': effectiveFrom,
+      if (state != null) 'state': state,
+      if (evaluationPeriod != null) 'evaluation_period': evaluationPeriod,
       if (minimumPercent != null) 'minimum_percent': minimumPercent,
       if (calculationBasis != null) 'calculation_basis': calculationBasis,
       if (fullUnit != null) 'full_unit': fullUnit,
       if (halfUnit != null) 'half_unit': halfUnit,
+      if (startDate != null) 'start_date': startDate,
+      if (endDate != null) 'end_date': endDate,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -912,10 +1051,14 @@ class OrganizationPolicyRowsCompanion
       Value<String>? organizationId,
       Value<int>? version,
       Value<DateTime>? effectiveFrom,
-      Value<double>? minimumPercent,
+      Value<String>? state,
+      Value<String>? evaluationPeriod,
+      Value<double?>? minimumPercent,
       Value<String>? calculationBasis,
       Value<double>? fullUnit,
       Value<double>? halfUnit,
+      Value<DateTime?>? startDate,
+      Value<DateTime?>? endDate,
       Value<DateTime>? updatedAt,
       Value<int>? rowid}) {
     return OrganizationPolicyRowsCompanion(
@@ -923,10 +1066,14 @@ class OrganizationPolicyRowsCompanion
       organizationId: organizationId ?? this.organizationId,
       version: version ?? this.version,
       effectiveFrom: effectiveFrom ?? this.effectiveFrom,
+      state: state ?? this.state,
+      evaluationPeriod: evaluationPeriod ?? this.evaluationPeriod,
       minimumPercent: minimumPercent ?? this.minimumPercent,
       calculationBasis: calculationBasis ?? this.calculationBasis,
       fullUnit: fullUnit ?? this.fullUnit,
       halfUnit: halfUnit ?? this.halfUnit,
+      startDate: startDate ?? this.startDate,
+      endDate: endDate ?? this.endDate,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -947,6 +1094,12 @@ class OrganizationPolicyRowsCompanion
     if (effectiveFrom.present) {
       map['effective_from'] = Variable<DateTime>(effectiveFrom.value);
     }
+    if (state.present) {
+      map['state'] = Variable<String>(state.value);
+    }
+    if (evaluationPeriod.present) {
+      map['evaluation_period'] = Variable<String>(evaluationPeriod.value);
+    }
     if (minimumPercent.present) {
       map['minimum_percent'] = Variable<double>(minimumPercent.value);
     }
@@ -958,6 +1111,12 @@ class OrganizationPolicyRowsCompanion
     }
     if (halfUnit.present) {
       map['half_unit'] = Variable<double>(halfUnit.value);
+    }
+    if (startDate.present) {
+      map['start_date'] = Variable<DateTime>(startDate.value);
+    }
+    if (endDate.present) {
+      map['end_date'] = Variable<DateTime>(endDate.value);
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
@@ -975,10 +1134,14 @@ class OrganizationPolicyRowsCompanion
           ..write('organizationId: $organizationId, ')
           ..write('version: $version, ')
           ..write('effectiveFrom: $effectiveFrom, ')
+          ..write('state: $state, ')
+          ..write('evaluationPeriod: $evaluationPeriod, ')
           ..write('minimumPercent: $minimumPercent, ')
           ..write('calculationBasis: $calculationBasis, ')
           ..write('fullUnit: $fullUnit, ')
           ..write('halfUnit: $halfUnit, ')
+          ..write('startDate: $startDate, ')
+          ..write('endDate: $endDate, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1683,10 +1846,14 @@ typedef $$OrganizationPolicyRowsTableCreateCompanionBuilder
   required String organizationId,
   required int version,
   required DateTime effectiveFrom,
-  required double minimumPercent,
+  required String state,
+  required String evaluationPeriod,
+  Value<double?> minimumPercent,
   required String calculationBasis,
   required double fullUnit,
   required double halfUnit,
+  Value<DateTime?> startDate,
+  Value<DateTime?> endDate,
   required DateTime updatedAt,
   Value<int> rowid,
 });
@@ -1696,10 +1863,14 @@ typedef $$OrganizationPolicyRowsTableUpdateCompanionBuilder
   Value<String> organizationId,
   Value<int> version,
   Value<DateTime> effectiveFrom,
-  Value<double> minimumPercent,
+  Value<String> state,
+  Value<String> evaluationPeriod,
+  Value<double?> minimumPercent,
   Value<String> calculationBasis,
   Value<double> fullUnit,
   Value<double> halfUnit,
+  Value<DateTime?> startDate,
+  Value<DateTime?> endDate,
   Value<DateTime> updatedAt,
   Value<int> rowid,
 });
@@ -1726,6 +1897,13 @@ class $$OrganizationPolicyRowsTableFilterComposer
   ColumnFilters<DateTime> get effectiveFrom => $composableBuilder(
       column: $table.effectiveFrom, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get state => $composableBuilder(
+      column: $table.state, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get evaluationPeriod => $composableBuilder(
+      column: $table.evaluationPeriod,
+      builder: (column) => ColumnFilters(column));
+
   ColumnFilters<double> get minimumPercent => $composableBuilder(
       column: $table.minimumPercent,
       builder: (column) => ColumnFilters(column));
@@ -1739,6 +1917,12 @@ class $$OrganizationPolicyRowsTableFilterComposer
 
   ColumnFilters<double> get halfUnit => $composableBuilder(
       column: $table.halfUnit, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get startDate => $composableBuilder(
+      column: $table.startDate, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get endDate => $composableBuilder(
+      column: $table.endDate, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnFilters(column));
@@ -1767,6 +1951,13 @@ class $$OrganizationPolicyRowsTableOrderingComposer
       column: $table.effectiveFrom,
       builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get state => $composableBuilder(
+      column: $table.state, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get evaluationPeriod => $composableBuilder(
+      column: $table.evaluationPeriod,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<double> get minimumPercent => $composableBuilder(
       column: $table.minimumPercent,
       builder: (column) => ColumnOrderings(column));
@@ -1780,6 +1971,12 @@ class $$OrganizationPolicyRowsTableOrderingComposer
 
   ColumnOrderings<double> get halfUnit => $composableBuilder(
       column: $table.halfUnit, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get startDate => $composableBuilder(
+      column: $table.startDate, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get endDate => $composableBuilder(
+      column: $table.endDate, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
@@ -1806,6 +2003,12 @@ class $$OrganizationPolicyRowsTableAnnotationComposer
   GeneratedColumn<DateTime> get effectiveFrom => $composableBuilder(
       column: $table.effectiveFrom, builder: (column) => column);
 
+  GeneratedColumn<String> get state =>
+      $composableBuilder(column: $table.state, builder: (column) => column);
+
+  GeneratedColumn<String> get evaluationPeriod => $composableBuilder(
+      column: $table.evaluationPeriod, builder: (column) => column);
+
   GeneratedColumn<double> get minimumPercent => $composableBuilder(
       column: $table.minimumPercent, builder: (column) => column);
 
@@ -1817,6 +2020,12 @@ class $$OrganizationPolicyRowsTableAnnotationComposer
 
   GeneratedColumn<double> get halfUnit =>
       $composableBuilder(column: $table.halfUnit, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get startDate =>
+      $composableBuilder(column: $table.startDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get endDate =>
+      $composableBuilder(column: $table.endDate, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -1857,10 +2066,14 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             Value<String> organizationId = const Value.absent(),
             Value<int> version = const Value.absent(),
             Value<DateTime> effectiveFrom = const Value.absent(),
-            Value<double> minimumPercent = const Value.absent(),
+            Value<String> state = const Value.absent(),
+            Value<String> evaluationPeriod = const Value.absent(),
+            Value<double?> minimumPercent = const Value.absent(),
             Value<String> calculationBasis = const Value.absent(),
             Value<double> fullUnit = const Value.absent(),
             Value<double> halfUnit = const Value.absent(),
+            Value<DateTime?> startDate = const Value.absent(),
+            Value<DateTime?> endDate = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -1869,10 +2082,14 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             organizationId: organizationId,
             version: version,
             effectiveFrom: effectiveFrom,
+            state: state,
+            evaluationPeriod: evaluationPeriod,
             minimumPercent: minimumPercent,
             calculationBasis: calculationBasis,
             fullUnit: fullUnit,
             halfUnit: halfUnit,
+            startDate: startDate,
+            endDate: endDate,
             updatedAt: updatedAt,
             rowid: rowid,
           ),
@@ -1881,10 +2098,14 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             required String organizationId,
             required int version,
             required DateTime effectiveFrom,
-            required double minimumPercent,
+            required String state,
+            required String evaluationPeriod,
+            Value<double?> minimumPercent = const Value.absent(),
             required String calculationBasis,
             required double fullUnit,
             required double halfUnit,
+            Value<DateTime?> startDate = const Value.absent(),
+            Value<DateTime?> endDate = const Value.absent(),
             required DateTime updatedAt,
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -1893,10 +2114,14 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             organizationId: organizationId,
             version: version,
             effectiveFrom: effectiveFrom,
+            state: state,
+            evaluationPeriod: evaluationPeriod,
             minimumPercent: minimumPercent,
             calculationBasis: calculationBasis,
             fullUnit: fullUnit,
             halfUnit: halfUnit,
+            startDate: startDate,
+            endDate: endDate,
             updatedAt: updatedAt,
             rowid: rowid,
           ),
