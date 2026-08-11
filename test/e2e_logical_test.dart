@@ -20,17 +20,27 @@ import 'package:standin/src/data/local_first_attendance_repository.dart';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 
+import 'package:google_sign_in/google_sign_in.dart';
+
 class MockFirebaseAuth extends Mock implements auth.FirebaseAuth {}
 class MockUser extends Mock implements auth.User {}
+class MockUserCredential extends Mock implements auth.UserCredential {}
 class MockSecureStorage extends Mock implements FlutterSecureStorage {}
 class MockConnectivity extends Mock implements Connectivity {}
+class MockGoogleSignIn extends Mock implements GoogleSignIn {}
+class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
+class MockGoogleSignInAuthentication extends Mock implements GoogleSignInAuthentication {}
 
 void main() {
   late StandInDatabase database;
   late FakeFirebaseFirestore firestore;
   late MockFirebaseAuth mockAuth;
   late MockUser mockUser;
+  late MockUserCredential mockUserCredential;
   late MockConnectivity mockConnectivity;
+  late MockGoogleSignIn mockGoogleSignIn;
+  late MockGoogleSignInAccount mockGoogleAccount;
+  late MockGoogleSignInAuthentication mockGoogleAuth;
   late AuthService authService;
   late UserRepository userRepo;
   late OrganizationRepository orgRepo;
@@ -42,13 +52,25 @@ void main() {
     firestore = FakeFirebaseFirestore();
     mockAuth = MockFirebaseAuth();
     mockUser = MockUser();
+    mockUserCredential = MockUserCredential();
     mockConnectivity = MockConnectivity();
+    mockGoogleSignIn = MockGoogleSignIn();
+    mockGoogleAccount = MockGoogleSignInAccount();
+    mockGoogleAuth = MockGoogleSignInAuthentication();
     
     when(() => mockAuth.currentUser).thenReturn(mockUser);
     when(() => mockUser.uid).thenReturn('test_uid_123');
+    when(() => mockUser.displayName).thenReturn('Test User');
+    when(() => mockUserCredential.user).thenReturn(mockUser);
     when(() => mockConnectivity.checkConnectivity()).thenAnswer((_) async => [ConnectivityResult.wifi]);
     
-    authService = AuthService(mockAuth, MockSecureStorage());
+    when(() => mockGoogleSignIn.signIn()).thenAnswer((_) async => mockGoogleAccount);
+    when(() => mockGoogleAccount.authentication).thenAnswer((_) async => mockGoogleAuth);
+    when(() => mockGoogleAuth.accessToken).thenReturn('fake_access_token');
+    when(() => mockGoogleAuth.idToken).thenReturn('fake_id_token');
+    when(() => mockAuth.signInWithCredential(any())).thenAnswer((_) async => mockUserCredential);
+
+    authService = AuthService(mockAuth, MockSecureStorage(), googleSignIn: mockGoogleSignIn);
     userRepo = UserRepository(database, FirestoreUserRemote(firestore));
     orgRepo = OrganizationRepository(database, FirestoreOrgRemote(firestore));
     
@@ -66,14 +88,24 @@ void main() {
     );
   });
 
+  setUpAll(() {
+    registerFallbackValue(auth.GoogleAuthProvider.credential(accessToken: 'a', idToken: 'b'));
+  });
+
   tearDown(() async {
     await database.close();
   });
 
-  test('E2E Logical Flow: Signup -> Org -> Attendance -> Sync', () async {
-    print('STEP 1: Profile Setup');
-    await onboarding.completeProfile('Test User', '9876543210');
+  test('E2E Logical Flow: Google Login -> Signup -> Org -> Attendance -> Sync', () async {
+    print('STEP 0: Google Sign-In');
+    expect(onboarding.step, OnboardingStep.welcome);
+    await onboarding.signInWithGoogle();
+    expect(onboarding.step, OnboardingStep.roleSelection);
     expect(onboarding.displayName, 'Test User');
+
+    print('STEP 1: Profile Setup');
+    await onboarding.completeProfile('Test User Renamed', '9876543210');
+    expect(onboarding.displayName, 'Test User Renamed');
     expect(onboarding.mobile, '9876543210');
 
     print('STEP 2: Username Uniqueness (Logical)');
@@ -103,7 +135,7 @@ void main() {
     
     // Verify Local Drift state
     final localProfile = await userRepo.getProfile('test_uid_123');
-    expect(localProfile?.displayName, 'Test User');
+    expect(localProfile?.displayName, 'Test User Renamed');
     expect(localProfile?.activeFollowId, isNotNull);
     
     final followId = localProfile!.activeFollowId!;

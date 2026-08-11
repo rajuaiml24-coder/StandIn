@@ -1,7 +1,4 @@
-- [ ] Create `test/firebase_integration_e2e_test.dart`
-- [ ] Implement Account Creation test logic
-- [ ] Implement Organization & Follow test logic
-- [ ] Implement Attendance & Sync test logic
-- [ ] Implement Security Boundary check logic
-- [ ] Run test and capture results
-- [ ] Cleanup test data
+- [ ] Update `StandInDatabase` constructor with `DriftWebOptions` in `lib/src/data/local/standin_database.dart`
+- [ ] Run `flutter analyze`
+- [ ] Run `flutter test`
+- [ ] Run `flutter build web`

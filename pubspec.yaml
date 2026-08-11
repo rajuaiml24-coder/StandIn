@@ -18,6 +18,8 @@ dependencies:
   local_auth: ^2.3.0
   connectivity_plus: ^6.1.0
   google_mobile_ads: ^5.2.0
+  google_sign_in: ^6.2.1
+  crypto: ^3.0.3
 
 dev_dependencies:
   flutter_test:

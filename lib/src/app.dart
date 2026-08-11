@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -12,12 +11,10 @@ import 'data/local/standin_database.dart';
 import 'data/development_repository.dart';
 import 'domain/attendance.dart';
 import 'domain/policy_engine.dart';
-import 'domain/validators.dart';
 import 'features/attendance/attendance_controller.dart';
 import 'features/onboarding/onboarding_controller.dart';
 import 'features/onboarding/profile_setup_page.dart';
 import 'features/onboarding/username_generation_page.dart';
-import 'features/onboarding/security_setup_page.dart';
 import 'features/onboarding/organization_create_page.dart';
 import 'features/onboarding/organization_id_page.dart';
 import 'features/onboarding/organization_search_page.dart';
@@ -44,7 +41,12 @@ class _StandInAppState extends State<StandInApp> {
   void initState() {
     super.initState();
     database = StandInDatabase();
-    final auth = AuthService(FirebaseAuth.instance, const FlutterSecureStorage());
+    final auth = AuthService(
+      FirebaseAuth.instance, 
+      const FlutterSecureStorage(
+        webOptions: WebOptions(dbName: 'standin_vault'),
+      ),
+    );
     final userRemote = FirestoreUserRemote(FirebaseFirestore.instance);
     final orgRemote = FirestoreOrgRemote(FirebaseFirestore.instance);
     
@@ -102,9 +104,6 @@ class _StandInAppState extends State<StandInApp> {
         case OnboardingStep.usernameGeneration:
           home = UsernameGenerationPage(controller: onboardingController);
           break;
-        case OnboardingStep.security:
-          home = SecuritySetupPage(controller: onboardingController);
-          break;
         case OnboardingStep.organizationSearch:
           home = OrganizationSearchPage(controller: onboardingController);
           break;
@@ -139,173 +138,105 @@ class _StandInAppState extends State<StandInApp> {
   );
 }
 
-class LandingLoginPage extends StatefulWidget {
+class LandingLoginPage extends StatelessWidget {
   const LandingLoginPage({super.key, required this.controller});
   final OnboardingController controller;
 
   @override
-  State<LandingLoginPage> createState() => _LandingLoginPageState();
-}
-
-class _LandingLoginPageState extends State<LandingLoginPage> {
-  final _userController = TextEditingController();
-  final _pinController = TextEditingController();
-  
-  ValidationResult _usernameValidation = const ValidationResult(null);
-  ValidationResult _pinValidation = const ValidationResult(null);
-
-  @override
-  void initState() {
-    super.initState();
-    _userController.addListener(_validate);
-    _pinController.addListener(_validate);
-  }
-
-  @override
-  void dispose() {
-    _userController.dispose();
-    _pinController.dispose();
-    super.dispose();
-  }
-
-  void _validate() {
-    setState(() {
-      _usernameValidation = widget.controller.usernameValidator.validate(_userController.text);
-      _pinValidation = widget.controller.pinValidator.validate(_pinController.text);
-    });
-  }
-
-  bool get _canSignIn => _usernameValidation.isValid && _pinValidation.isValid;
-
-  @override
-  Widget build(BuildContext context) => Scaffold(
-    backgroundColor: Colors.white,
-    body: Stack(
-      children: [
-        // Decorative background elements
-        Positioned(
-          top: -100,
-          right: -100,
-          child: Container(
-            width: 400,
-            height: 400,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: orange.withValues(alpha: 0.04),
+  Widget build(BuildContext context) => ListenableBuilder(
+    listenable: controller,
+    builder: (context, _) => Scaffold(
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          // Decorative background elements
+          Positioned(
+            top: -100,
+            right: -100,
+            child: Container(
+              width: 400,
+              height: 400,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: orange.withValues(alpha: 0.04),
+              ),
             ),
           ),
-        ),
-        SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              return SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
-                      child: Column(
-                        children: [
-                          const Spacer(),
-                          // Maximized Logo
-                          Center(
-                            child: Image.asset(
-                              'assets/brand/standin_logo.png', 
-                              height: 180, 
-                              errorBuilder: (_, __, ___) => const Icon(Icons.how_to_reg, color: navy, size: 120),
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          const Text(
-                            'StandIn', 
-                            style: TextStyle(
-                              fontSize: 32, 
-                              letterSpacing: -1.5,
-                              fontWeight: FontWeight.w900, 
-                              color: navy,
-                            ),
-                          ),
-                          const Spacer(),
-                          // Login Fields
-                          TextField(
-                            controller: _userController,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.allow(RegExp(r"[a-z0-9_.]")),
-                              LengthLimitingTextInputFormatter(15),
-                            ],
-                            decoration: InputDecoration(
-                              labelText: 'Username or ID',
-                              filled: true,
-                              fillColor: const Color(0xFFF6F7FB),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                              prefixIcon: const Icon(Icons.person_outline, color: navy),
-                              errorText: _userController.text.isNotEmpty && !_usernameValidation.isValid 
-                                  ? _usernameValidation.message 
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          TextField(
-                            controller: _pinController,
-                            obscureText: true,
-                            keyboardType: TextInputType.number,
-                            maxLength: 4,
-                            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                            decoration: InputDecoration(
-                              labelText: '4-Digit PIN',
-                              counterText: '',
-                              filled: true,
-                              fillColor: const Color(0xFFF6F7FB),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
-                              prefixIcon: const Icon(Icons.lock_outline, color: navy),
-                              errorText: _pinController.text.isNotEmpty && !_pinValidation.isValid 
-                                  ? _pinValidation.message 
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(height: 24),
-                          SizedBox(
-                            width: double.infinity,
-                            height: 60,
-                            child: FilledButton(
-                              onPressed: _canSignIn 
-                                  ? () => widget.controller.login(_userController.text, _pinController.text) 
-                                  : null,
-                              style: FilledButton.styleFrom(
-                                backgroundColor: navy, 
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))
-                              ),
-                              child: const Text('Sign In', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          const _InstallHint(),
-                          const Spacer(),
-                          TextButton(
-                            onPressed: widget.controller.goToSignup, 
-                            child: RichText(
-                              text: const TextSpan(
-                                style: TextStyle(color: Color(0xFF667085), fontSize: 15),
-                                children: [
-                                  TextSpan(text: 'New user? '),
-                                  TextSpan(
-                                    text: 'Create Account', 
-                                    style: TextStyle(color: orange, fontWeight: FontWeight.bold),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 20),
+              child: Column(
+                children: [
+                  const Spacer(),
+                  // Maximized Logo
+                  Center(
+                    child: Image.asset(
+                      'assets/brand/standin_logo.png', 
+                      height: 180, 
+                      errorBuilder: (_, __, ___) => const Icon(Icons.how_to_reg, color: navy, size: 120),
                     ),
                   ),
-                ),
-              );
-            },
+                  const SizedBox(height: 24),
+                  const Text(
+                    'StandIn', 
+                    style: TextStyle(
+                      fontSize: 40, 
+                      letterSpacing: -2,
+                      fontWeight: FontWeight.w900, 
+                      color: navy,
+                    ),
+                  ),
+                  const Text(
+                    'Workday & Attendance Safety Planner',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 14, color: Color(0xFF667085), fontWeight: FontWeight.w500),
+                  ),
+                  const Spacer(),
+                  
+                  if (controller.authError != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: Text(
+                        controller.authError!,
+                        style: const TextStyle(color: Colors.red, fontSize: 13),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+
+                  SizedBox(
+                    width: double.infinity,
+                    height: 64,
+                    child: FilledButton(
+                      onPressed: controller.isAuthenticating ? null : controller.signInWithGoogle,
+                      style: FilledButton.styleFrom(
+                        backgroundColor: navy, 
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))
+                      ),
+                      child: controller.isAuthenticating
+                        ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 3))
+                        : const Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.login, color: Colors.white),
+                              SizedBox(width: 12),
+                              Text('Continue with Google', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                            ],
+                          ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const _InstallHint(),
+                  const Spacer(),
+                  const Text(
+                    'By continuing, you agree to our Terms of Service',
+                    style: TextStyle(fontSize: 11, color: Color(0xFF98A2B3)),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     ),
   );
 }

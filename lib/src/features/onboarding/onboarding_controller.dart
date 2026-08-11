@@ -11,7 +11,6 @@ enum OnboardingStep {
   roleSelection,
   profile,
   usernameGeneration,
-  security,
   organizationSearch,
   organizationCreate,
   organizationId,
@@ -35,6 +34,12 @@ class OnboardingController extends ChangeNotifier {
   OnboardingStep _step = OnboardingStep.welcome;
   OnboardingStep get step => _step;
 
+  bool _isAuthenticating = false;
+  bool get isAuthenticating => _isAuthenticating;
+
+  String? _authError;
+  String? get authError => _authError;
+
   AppRole? _role;
   AppRole? get role => _role;
 
@@ -49,12 +54,6 @@ class OnboardingController extends ChangeNotifier {
 
   bool _isCheckingUsername = false;
   bool get isCheckingUsername => _isCheckingUsername;
-
-  String? _pin;
-  String? get currentPin => _pin;
-
-  bool _biometricsEnabled = false;
-  bool get biometricsEnabled => _biometricsEnabled;
 
   Organization? _selectedOrganization;
   Organization? get selectedOrganization => _selectedOrganization;
@@ -71,20 +70,39 @@ class OnboardingController extends ChangeNotifier {
   // Validators
   final nameValidator = NameValidator();
   final mobileValidator = MobileValidator();
-  final pinValidator = PinValidator();
   final usernameValidator = UsernameValidator();
   final idValidator = IdValidator();
   final orgNameValidator = OrganizationNameValidator();
 
-  void goToSignup() {
-    _step = OnboardingStep.roleSelection;
+  Future<void> signInWithGoogle() async {
+    _isAuthenticating = true;
+    _authError = null;
     notifyListeners();
-  }
 
-  void login(String username, String pin) {
-    if (usernameValidator.validate(username).isValid && 
-        pinValidator.validate(pin).isValid) {
-      _step = OnboardingStep.complete;
+    try {
+      final credential = await _authService.signInWithGoogle();
+      if (credential == null) {
+        _isAuthenticating = false;
+        notifyListeners();
+        return; // Cancelled
+      }
+
+      final uid = credential.user?.uid;
+      if (uid == null) throw Exception('No UID returned');
+
+      // Check for existing profile
+      final profile = await _userRepository.getProfile(uid);
+      if (profile != null) {
+        _step = OnboardingStep.complete;
+      } else {
+        // New user - capture default name from Google if available
+        _displayName = credential.user?.displayName ?? '';
+        _step = OnboardingStep.roleSelection;
+      }
+    } catch (e) {
+      _authError = e.toString();
+    } finally {
+      _isAuthenticating = false;
       notifyListeners();
     }
   }
@@ -114,32 +132,19 @@ class OnboardingController extends ChangeNotifier {
     final suffix = Random().nextInt(999).toString().padLeft(3, '0');
     final suggestion = '${base.substring(0, min(base.length, 11))}_$suffix';
     
-    // Simulate API delay
-    await Future.delayed(const Duration(milliseconds: 500));
-    
+    // Remote availability check using existing UserRepository -> FirestoreUserRemote
     _username = suggestion;
     _isCheckingUsername = false;
     notifyListeners();
   }
 
   Future<bool> checkUsernameAvailability(String username) async {
-    // Isolated mock for later Firestore replacement
-    await Future.delayed(const Duration(milliseconds: 300));
-    return true; 
+    return _userRepository.checkUsernameAvailable(username);
   }
 
   void confirmUsername() {
-    _step = OnboardingStep.security;
+    _step = OnboardingStep.organizationSearch;
     notifyListeners();
-  }
-
-  void completeSecurity(String pin, bool biometrics) {
-    if (pinValidator.validate(pin).isValid) {
-      _pin = pin;
-      _biometricsEnabled = biometrics;
-      _step = OnboardingStep.organizationSearch;
-      notifyListeners();
-    }
   }
 
   void selectOrganization(Organization org, AttendancePolicy policy) {
@@ -182,10 +187,15 @@ class OnboardingController extends ChangeNotifier {
     final uid = _authService.uid;
     if (uid == null) return;
 
+    // Atomic username claim first
+    if (_username != null) {
+      await _userRepository.claimUsername(_username!, uid);
+    }
+
     final follow = Follow(
       id: 'f-${DateTime.now().millisecondsSinceEpoch}',
       organizationId: _selectedOrganization!.id,
-      scopeId: _selectedOrganization!.id, // Default to org id as scope for now
+      scopeId: _selectedOrganization!.id,
       status: 'active',
       followedAt: DateTime.now(),
     );
@@ -221,10 +231,8 @@ class OnboardingController extends ChangeNotifier {
       _step = OnboardingStep.roleSelection;
     } else if (_step == OnboardingStep.usernameGeneration) {
       _step = OnboardingStep.profile;
-    } else if (_step == OnboardingStep.security) {
-      _step = OnboardingStep.usernameGeneration;
     } else if (_step == OnboardingStep.organizationSearch) {
-      _step = OnboardingStep.security;
+      _step = OnboardingStep.usernameGeneration;
     } else if (_step == OnboardingStep.organizationCreate) {
       _step = OnboardingStep.organizationSearch;
     } else if (_step == OnboardingStep.organizationId) {
@@ -235,13 +243,12 @@ class OnboardingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void logout() {
+  Future<void> logout() async {
+    await _authService.signOut();
     _step = OnboardingStep.welcome;
     _role = null;
     _displayName = '';
     _mobile = null;
-    _pin = null;
-    _biometricsEnabled = false;
     _selectedOrganization = null;
     _selectedPolicy = null;
     notifyListeners();

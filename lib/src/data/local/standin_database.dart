@@ -111,9 +111,17 @@ class SyncMetadataRows extends Table {
 
 @DriftDatabase(tables: [AttendanceTable, OrganizationRows, ScopeRows, FollowRows, MembershipRows, UserProfileRows, OrganizationPolicyRows, SyncQueueRows, SyncMetadataRows])
 class StandInDatabase extends _$StandInDatabase {
-  StandInDatabase() : super(driftDatabase(name: 'standin'));
+  StandInDatabase()
+      : super(driftDatabase(
+          name: 'standin',
+          web: DriftWebOptions(
+            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+            driftWorker: Uri.parse('drift_worker.js'),
+          ),
+        ));
   StandInDatabase.executor(super.e);
-  @override int get schemaVersion => 1;
+  @override
+  int get schemaVersion => 1;
 
   Stream<List<AttendanceTableData>> watchAttendance(String organizationId) =>
       (select(attendanceTable)..where((row) => row.organizationId.equals(organizationId))..orderBy([(row) => OrderingTerm.desc(row.attendanceDate)])).watch();

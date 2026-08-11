@@ -1,46 +1,31 @@
-# Implementation Plan: End-to-End Firebase Integration Test
+# Implementation Plan: Fix Drift Web Initialization
 
-This plan outlines a comprehensive integration test to verify the full StandIn stack (Drift + Firestore + Sync) under real-world scenarios.
+This plan addresses the `ArgumentError` when initializing the Drift database on Web/PWA: "When compiling to the web, the `web` parameter needs to be set."
 
 ## User Review Required
 
 > [!IMPORTANT]
-> **Real Data**: This test will interact with the actual `standin-5755d` project. I will use unique, temporary test IDs (e.g., `test_user_xyz`) to avoid pollution.
-> **Environment**: I will attempt to run these tests using `flutter test`. If network or credential issues arise, I will provide a script that can be run in a production-ready environment.
-
-## Test Scenario Breakdown
-
-### 1. Account & Identity
-- **Steps**: Create a new account, generate a unique username, verify uniqueness check, and set up a PIN.
-- **Verification**: Check `usernames` and `users` collections in Firestore.
-
-### 2. Organization & Following
-- **Steps**: Create a test organization, search for it, and "follow" it.
-- **Verification**: Check `organizations` and `users/{uid}/follows` collections.
-
-### 3. Policy & Calendar Resolution
-- **Steps**: Define a policy for the organization and verify that the client resolves it correctly (Hierarchy: Personal -> Scope -> Org).
-- **Verification**: Assert correct `AttendancePolicy` object in `AttendanceController`.
-
-### 4. Attendance & Sync (Local-First)
-- **Scenario A (Online)**: Mark attendance -> Verify Drift write -> Trigger Sync -> Verify Firestore update.
-- **Scenario B (Offline)**: Mark attendance -> Verify Drift write -> Simulate restart -> Trigger Sync -> Verify Firestore.
-- **Scenario C (Conflict)**: Verify that two users following the same org get independent attendance records.
-
-### 5. Security Boundaries
-- **Steps**: Attempt to modify `isAdmin` or another user's attendance record.
-- **Verification**: Confirm that Firestore rules reject the operation with a `PERMISSION_DENIED` error.
+> **Drift Web Assets**: Drift on Web requires `sqlite3.wasm` and `drift_worker.js` to be present in the `web/` directory for optimal performance and persistent storage. I will configure the app to look for these files.
+> **PWA Support**: Proper web initialization is critical for local-first behavior on PWA, ensuring data is persisted across browser refreshes and offline sessions.
 
 ## Proposed Changes
 
-#### [NEW] [firebase_integration_e2e_test.dart](file:///C:/StandIn/test/firebase_integration_e2e_test.dart)
-- A specialized test file that orchestrates the above steps using the production `AuthService`, `UserRepository`, `OrganizationRepository`, and `SyncEngine`.
+### 1. Fix StandInDatabase Initialization
+#### [MODIFY] [standin_database.dart](file:///C:/StandIn/lib/src/data/local/standin_database.dart)
+- Update the `StandInDatabase` constructor to provide `DriftWebOptions` to the `driftDatabase` function.
+- Configure `sqlite3Wasm` and `driftWorker` paths.
+
+### 2. Verify Data Model Consistency
+- Ensure that the web implementation uses the same schema and naming conventions as the Android implementation.
 
 ## Verification Plan
 
-### Execution
-- Run `flutter test test/firebase_integration_e2e_test.dart`.
-- Monitor console output for PASS/FAIL on each step.
+### Automated Tests
+- Run `flutter analyze` to ensure no syntax issues.
+- Run `flutter test` to ensure existing logic tests pass.
+- Run `flutter build web` to verify the build process.
 
-### Post-Test Cleanup
-- I will include a cleanup step in the test to delete temporary `test_*` documents if possible (subject to security rules).
+### Manual Verification
+- Run the Web/PWA preview.
+- Confirm that the "ArgumentError" is resolved and the app loads the Landing screen.
+- Verify that "Continue with Google" is visible.

@@ -53,6 +53,10 @@ class UserRepository {
     await _remote.createUserProfile(profile);
   }
 
+  Future<bool> checkUsernameAvailable(String username) => _remote.isUsernameAvailable(username);
+
+  Future<void> claimUsername(String username, String uid) => _remote.claimUsername(username, uid);
+
   Future<void> saveFollow(String uid, Follow follow) async {
     await _database.upsertFollow(FollowRowsCompanion.insert(
       id: follow.id,
