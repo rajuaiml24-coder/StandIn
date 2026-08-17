@@ -12,7 +12,20 @@
           "package_name": "in.withwells.standin"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "645644256889-culke73g6lh831jcink3djfbji1k9sf8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.withwells.standin",
+            "certificate_hash": "a4982b40b4ed85e03ac19c4710d7fa7127da1b1b"
+          }
+        },
+        {
+          "client_id": "645644256889-fta4md48g87u4httj005egv22gf80j3g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyB1kiF4l0HAK2oow1wxKPmfxDg8GqdUrDE"
@@ -20,7 +33,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "645644256889-fta4md48g87u4httj005egv22gf80j3g.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

@@ -1,0 +1,15 @@
+- [ ] Download compatible WASM assets
+    - [ ] Fetch `drift_worker.js` (v2.31.0)
+    - [ ] Fetch `sqlite3.wasm` (v2.4.3)
+- [ ] Modernize Web Connection logic
+    - [ ] Update `lib/src/data/local/connection/web.dart` to use `driftDatabase`
+- [ ] Cleanup Web assets in HTML
+    - [ ] Remove `sql-wasm.js` script from `web/index.html`
+- [ ] Build and Verify
+    - [ ] `flutter clean`
+    - [ ] `flutter pub get`
+    - [ ] `flutter analyze`
+    - [ ] `flutter test`
+    - [ ] `flutter build web`
+    - [ ] `flutter run -d chrome`
+- [ ] Manual verification in Browser DevTools

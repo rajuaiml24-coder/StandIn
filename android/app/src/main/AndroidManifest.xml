@@ -3,7 +3,7 @@
     <application
         android:label="standin"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/launcher_icon">
 
         <!-- AdMob App ID (Required by google_mobile_ads) -->
         <meta-data
