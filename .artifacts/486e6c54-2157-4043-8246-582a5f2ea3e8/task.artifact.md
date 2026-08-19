@@ -1,0 +1,14 @@
+- [x] Fix `OnboardingController` state management (isNewBranch/isNewSemester)
+- [x] Update `OrganizationRepository` to support official calendar fetching and setup refinement
+- [x] Update `FirestoreOrgRemote` to include `createdBy` in organization writes
+- [x] Implement personal calendar initialization in `followOrganization`
+- [x] Update Firestore rules for secure organization configuration
+- [x] Add regression tests:
+    - [x] Following existing scope without writes
+    - [x] Policy inheritance and personal calendar independence
+    - [x] New organization creation
+- [x] Final verification:
+    - [x] `flutter analyze`
+    - [x] `flutter test`
+    - [x] `flutter build web`
+    - [x] End-to-end Student A -> Student B flow

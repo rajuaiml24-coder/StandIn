@@ -54,6 +54,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         icon: const Icon(Icons.arrow_back, color: navy),
         onPressed: widget.controller.back,
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: Image.asset('assets/brand/standin_logo.png', height: 28),
+        ),
+      ],
     ),
     body: SafeArea(
       child: LayoutBuilder(

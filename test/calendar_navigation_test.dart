@@ -1,7 +1,5 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:standin/src/domain/attendance.dart';
-import 'package:standin/src/domain/policy_engine.dart';
 
 void main() {
   group('AttendanceCalendar Logic Verification', () {
@@ -10,7 +8,7 @@ void main() {
       version: 1,
       effectiveFrom: DateTime(2026, 1, 1),
       weeklyOffs: [7], // Sunday only
-      saturdayPattern: SaturdayPattern.secondFourthOff,
+      offSaturdays: [2, 4],
       isConfigured: true,
     );
 

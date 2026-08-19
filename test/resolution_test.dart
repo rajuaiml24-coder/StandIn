@@ -10,7 +10,7 @@ class ManualMockOrgRemote implements FirestoreOrgRemote {
   @override dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
   @override Future<AttendancePolicy?> getPolicy(String orgId, String policyId) async => null;
   @override Future<void> putMembership(Membership membership) async {}
-  @override Future<void> putOrganization(Organization org) async {}
+  @override Future<void> putOrganization(Organization org, String uid) async {}
 }
 
 void main() {
@@ -31,7 +31,7 @@ void main() {
   group('Policy Resolution', () {
     test('Hierarchy resolution: Scope -> Parent -> Org', () async {
       // 1. Setup Org Policy
-      final orgPolicy = _makePolicy(id: 'org-default', scopeId: 'global', min: 75);
+      final orgPolicy = _makePolicy(id: 'policy-global', scopeId: 'global', min: 75);
       await repository.cachePolicy('org-1', orgPolicy);
 
       // 2. Resolve for a scope with no policy
@@ -51,7 +51,7 @@ void main() {
     });
 
     test('Personal override wins over organization policy', () async {
-      final orgPolicy = _makePolicy(id: 'org-default', scopeId: 'global', min: 75);
+      final orgPolicy = _makePolicy(id: 'policy-global', scopeId: 'global', min: 75);
       await repository.cachePolicy('org-1', orgPolicy);
 
       // Setup Follow with personal target
@@ -66,9 +66,42 @@ void main() {
 
       final resolved = await repository.getResolvedPolicy(uid: 'u1', organizationId: 'org-1', scopeId: 's1', followId: 'f1');
       expect(resolved?.minimumPercent, 90);
+      // Basis should still come from the cached org policy (Hours)
+      expect(resolved?.basis, CalculationBasis.hours);
+
       // Ensure we didn't change the cached org policy
       final cached = await database.policyAt('org-1', 'global', DateTime.now());
       expect(cached?.minimumPercent, 75);
+    });
+
+    test('Personal basis override only', () async {
+      final orgPolicy = _makePolicy(id: 'policy-global', scopeId: 'global', min: 75);
+      await repository.cachePolicy('org-2', orgPolicy);
+
+      await database.upsertFollow(FollowRowsCompanion.insert(
+        id: 'f2', organizationId: 'org-2', scopeId: 's2', status: 'active', followedAt: DateTime.now(),
+        personalBasis: const Value('days'),
+        personalTargetPercent: const Value(null),
+      ));
+
+      final resolved = await repository.getResolvedPolicy(uid: 'u2', organizationId: 'org-2', scopeId: 's2', followId: 'f2');
+      expect(resolved?.minimumPercent, 75);
+      expect(resolved?.basis, CalculationBasis.days);
+    });
+
+    test('Both target and basis overrides', () async {
+      final orgPolicy = _makePolicy(id: 'policy-global', scopeId: 'global', min: 75);
+      await repository.cachePolicy('org-3', orgPolicy);
+
+      await database.upsertFollow(FollowRowsCompanion.insert(
+        id: 'f3', organizationId: 'org-3', scopeId: 's3', status: 'active', followedAt: DateTime.now(),
+        personalBasis: const Value('periods'),
+        personalTargetPercent: const Value(85.0),
+      ));
+
+      final resolved = await repository.getResolvedPolicy(uid: 'u3', organizationId: 'org-3', scopeId: 's3', followId: 'f3');
+      expect(resolved?.minimumPercent, 85.0);
+      expect(resolved?.basis, CalculationBasis.periods);
     });
   });
 }

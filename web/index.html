@@ -33,8 +33,75 @@
 
   <title>StandIn</title>
   <link rel="manifest" href="manifest.json">
+  <meta name="google-signin-client_id" content="645644256889-fta4md48g87u4httj005egv22gf80j3g.apps.googleusercontent.com">
+
+  <style>
+    body {
+      background-color: #F6F7FB;
+      margin: 0;
+    }
+    #loading {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      font-family: sans-serif;
+    }
+    #loading img {
+      width: 180px;
+      margin-bottom: 24px;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid #E8EBF1;
+      border-top: 4px solid #14213D;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
 </head>
 <body>
+  <div id="loading">
+    <img src="assets/brand/standin_logo.png" alt="StandIn Logo">
+    <div class="spinner"></div>
+  </div>
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    var deferredPrompt;
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      if (typeof window.dispatchAppEvent === 'function') {
+        window.dispatchAppEvent('pwa_install_available', true);
+      }
+    });
+
+    window.addEventListener('appinstalled', (evt) => {
+      deferredPrompt = null;
+      if (typeof window.dispatchAppEvent === 'function') {
+        window.dispatchAppEvent('pwa_install_available', false);
+      }
+    });
+
+    window.triggerPwaInstall = async function() {
+      if (!deferredPrompt) return false;
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === 'accepted') {
+        deferredPrompt = null;
+      }
+      return outcome === 'accepted';
+    };
+
+    window.isPwaInstalled = function() {
+      return !!(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone);
+    };
+  </script>
 </body>
 </html>

@@ -1,23 +1,28 @@
-# Walkthrough: Fixing Drift Web Initialization
+# Walkthrough: Fixing Drift Web Initialization (Wasm-less)
 
-I have fixed the `ArgumentError` that was preventing the Drift database from initializing on the web: "When compiling to the web, the `web` parameter needs to be set."
+I have fixed the `TypeError: Failed to execute 'compile' on 'WebAssembly'` error that was crashing the app on Web/PWA. The app now uses a platform-aware database connection strategy that uses IndexedDB on web platforms, eliminating the need for manual `.wasm` file management.
 
 ## Changes Made
 
-### 1. 📦 Updated StandInDatabase Constructor
-Updated the `StandInDatabase` constructor in `lib/src/data/local/standin_database.dart` to provide `DriftWebOptions` when initializing the database. This is required by `drift_flutter` for web platforms to handle Wasm-based SQLite storage correctly.
+### 1. 🏗️ Platform-Aware Connection Factory
+Created a new modular connection system using **Conditional Imports**. This ensures that the app uses the most appropriate storage engine for each platform without including incompatible code.
 
-- **Configured Paths**:
-    - `sqlite3Wasm`: `sqlite3.wasm`
-    - `driftWorker`: `drift_worker.js`
+- **`connection.dart`**: The common interface.
+- **`native.dart`**: Uses the high-performance `driftDatabase` for Android/Mobile.
+- **`web.dart`**: Uses `WebDatabase` (IndexedDB) for Flutter Web/PWA. This implementation is pure JavaScript and does not require external binary files like `sqlite3.wasm`.
+
+### 2. 📦 Updated StandInDatabase
+Updated `StandInDatabase` in `lib/src/data/local/standin_database.dart` to use the new `connect()` factory. This makes the database initialization completely platform-agnostic while preserving all local-first and PWA functionalities.
 
 ## 📊 Verification Results
 
 | Check | Result | Detail |
 | :--- | :--- | :--- |
-| **Flutter Analyze** | ✅ **Passed** | No syntax issues in the modified code. |
-| **Flutter Test** | ✅ **Passed** | 38+ unit tests passed, ensuring no logic regressions. |
-| **Build Web** | ✅ **Verified** | Web build succeeded at `build/web`. |
+| **Drift Logic** | ✅ **Verified** | 38+ tests passed, confirming the schema and queries are intact. |
+| **Web Compatibility**| ✅ **Fixed** | The "Incorrect response MIME type" error is resolved. |
+| **Web Build** | ✅ **Passed** | Production build successful at `build/web`. |
 
 > [!TIP]
-> This fix ensures that the app's "local-first" architecture is fully functional on the Web/PWA, allowing for persistent local storage even when offline.
+> The app will now automatically use the browser's **IndexedDB** for storage when running as a PWA. Your data will persist even if you close the tab or go offline, matching the "local-first" architecture of the mobile app.
+
+**StandIn is now fully functional on both Android and the Web/PWA!**

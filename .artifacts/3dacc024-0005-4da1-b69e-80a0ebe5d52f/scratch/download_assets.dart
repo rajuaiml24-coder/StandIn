@@ -4,7 +4,7 @@ import 'package:http/http.dart' as http;
 void main() async {
   final files = {
     'web/sqlite3.wasm': 'https://github.com/simolus3/sqlite3.dart/releases/download/sqlite3-2.4.3/sqlite3.wasm',
-    'web/drift_worker.js': 'https://raw.githubusercontent.com/simolus3/drift/main/extras/web_worker/drift_worker.js',
+    'web/drift_worker.js': 'https://raw.githubusercontent.com/simolus3/drift/drift-2.21.0/extras/web_worker/drift_worker.js',
   };
 
   for (final entry in files.entries) {

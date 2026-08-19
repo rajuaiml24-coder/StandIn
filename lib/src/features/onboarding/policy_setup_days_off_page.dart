@@ -12,7 +12,8 @@ class PolicySetupDaysOffPage extends StatefulWidget {
 class _PolicySetupDaysOffPageState extends State<PolicySetupDaysOffPage> {
   final List<int> _selected = [7]; // Default Sunday off selected
 
-  final List<String> _days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  final List<String> _days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Sunday'];
+  final List<int> _dayNums = [1, 2, 3, 4, 5, 7];
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -37,8 +38,8 @@ class _PolicySetupDaysOffPageState extends State<PolicySetupDaysOffPage> {
                     const SizedBox(height: 12),
                     const Text('Select your regular weekly holidays.', style: TextStyle(fontSize: 15, color: Color(0xFF667085))),
                     const SizedBox(height: 32),
-                    ...List.generate(7, (index) {
-                      final dayNum = index + 1;
+                    ...List.generate(_days.length, (index) {
+                      final dayNum = _dayNums[index];
                       final isSelected = _selected.contains(dayNum);
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
@@ -47,6 +48,7 @@ class _PolicySetupDaysOffPageState extends State<PolicySetupDaysOffPage> {
                           title: Text(_days[index], style: TextStyle(fontWeight: isSelected ? FontWeight.w800 : FontWeight.w500, color: navy)),
                           tileColor: background,
                           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                          activeColor: navy,
                           onChanged: (val) {
                             setState(() {
                               if (val == true) {
@@ -68,13 +70,6 @@ class _PolicySetupDaysOffPageState extends State<PolicySetupDaysOffPage> {
                         onPressed: () => widget.controller.selectDaysOff(_selected),
                         style: FilledButton.styleFrom(backgroundColor: navy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
                         child: const Text('Continue', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Center(
-                      child: TextButton(
-                        onPressed: () => widget.controller.selectDaysOff([]), // All days working
-                        child: const Text("All days are working", style: TextStyle(color: Color(0xFF667085))),
                       ),
                     ),
                   ],

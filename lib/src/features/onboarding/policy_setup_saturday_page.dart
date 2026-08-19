@@ -1,11 +1,18 @@
 import 'package:flutter/material.dart';
-import '../../domain/attendance.dart';
 import 'onboarding_controller.dart';
 import '../../app.dart';
 
-class PolicySetupSaturdayPage extends StatelessWidget {
+class PolicySetupSaturdayPage extends StatefulWidget {
   const PolicySetupSaturdayPage({super.key, required this.controller});
   final OnboardingController controller;
+
+  @override
+  State<PolicySetupSaturdayPage> createState() => _PolicySetupSaturdayPageState();
+}
+
+class _PolicySetupSaturdayPageState extends State<PolicySetupSaturdayPage> {
+  int _choice = 0; // 0: Working, 1: Weekly Off, 2: Selected
+  final List<int> _selectedSaturdays = [2, 4]; // Default 2nd & 4th
 
   @override
   Widget build(BuildContext context) => Scaffold(
@@ -13,7 +20,7 @@ class PolicySetupSaturdayPage extends StatelessWidget {
     appBar: AppBar(
       backgroundColor: Colors.white, 
       elevation: 0,
-      leading: IconButton(icon: const Icon(Icons.arrow_back, color: navy), onPressed: controller.back)
+      leading: IconButton(icon: const Icon(Icons.arrow_back, color: navy), onPressed: widget.controller.back)
     ),
     body: SafeArea(
       child: LayoutBuilder(
@@ -28,15 +35,55 @@ class PolicySetupSaturdayPage extends StatelessWidget {
                   children: [
                     const Text('How does Saturday\nwork?', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: navy, height: 1.2)),
                     const SizedBox(height: 12),
-                    const Text('Choose the pattern that matches your organization.', style: TextStyle(fontSize: 15, color: Color(0xFF667085))),
+                    const Text('Choose the behavior that matches your organization.', style: TextStyle(fontSize: 15, color: Color(0xFF667085))),
                     const SizedBox(height: 32),
-                    _PatternTile(label: 'Every Saturday Off', value: SaturdayPattern.everyOff, controller: controller),
-                    _PatternTile(label: 'Every Saturday Working', value: SaturdayPattern.everyWorking, controller: controller),
-                    _PatternTile(label: '1st & 3rd Saturday Off', value: SaturdayPattern.firstThirdOff, controller: controller),
-                    _PatternTile(label: '2nd & 4th Saturday Off', value: SaturdayPattern.secondFourthOff, controller: controller),
-                    _PatternTile(label: '1st, 3rd & 5th Saturday Off', value: SaturdayPattern.firstThirdFifthOff, controller: controller),
-                    _PatternTile(label: '2nd, 4th & 5th Saturday Off', value: SaturdayPattern.secondFourthFifthOff, controller: controller),
+                    _choiceTile(0, 'Every Saturday is a working day'),
+                    _choiceTile(1, 'Every Saturday is a weekly off'),
+                    _choiceTile(2, 'Only selected Saturdays are off'),
+                    
+                    if (_choice == 2) ...[
+                      const SizedBox(height: 24),
+                      const Text('Which Saturdays are off?', style: TextStyle(fontWeight: FontWeight.w700, color: navy)),
+                      const SizedBox(height: 12),
+                      ...List.generate(5, (index) {
+                        final satNum = index + 1;
+                        final isSelected = _selectedSaturdays.contains(satNum);
+                        return CheckboxListTile(
+                          value: isSelected,
+                          title: Text('${_ordinal(satNum)} Saturday'),
+                          activeColor: navy,
+                          onChanged: (val) {
+                            setState(() {
+                              if (val == true) {
+                                _selectedSaturdays.add(satNum);
+                              } else {
+                                _selectedSaturdays.remove(satNum);
+                              }
+                            });
+                          },
+                        );
+                      }),
+                    ],
+                    
                     const Spacer(),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      height: 64,
+                      child: FilledButton(
+                        onPressed: () {
+                          if (_choice == 0) {
+                            widget.controller.selectSaturdayOption(false, specificSaturdays: []);
+                          } else if (_choice == 1) {
+                            widget.controller.selectSaturdayOption(true);
+                          } else {
+                            widget.controller.selectSaturdayOption(false, specificSaturdays: _selectedSaturdays);
+                          }
+                        },
+                        style: FilledButton.styleFrom(backgroundColor: navy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
+                        child: const Text('Confirm and Start', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -46,23 +93,28 @@ class PolicySetupSaturdayPage extends StatelessWidget {
       ),
     ),
   );
-}
 
-class _PatternTile extends StatelessWidget {
-  const _PatternTile({required this.label, required this.value, required this.controller});
-  final String label;
-  final SaturdayPattern value;
-  final OnboardingController controller;
-
-  @override
-  Widget build(BuildContext context) => Padding(
+  Widget _choiceTile(int value, String label) => Padding(
     padding: const EdgeInsets.only(bottom: 12),
-    child: ListTile(
+    child: RadioListTile<int>(
+      value: value,
+      // ignore: deprecated_member_use
+      groupValue: _choice,
+      title: Text(label, style: TextStyle(fontWeight: _choice == value ? FontWeight.w800 : FontWeight.w500, color: navy)),
       tileColor: background,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      title: Text(label, style: const TextStyle(fontWeight: FontWeight.w700, color: navy)),
-      trailing: const Icon(Icons.chevron_right, color: Color(0xFF98A2B3)),
-      onTap: () => controller.selectSaturdayPattern(value),
+      activeColor: navy,
+      // ignore: deprecated_member_use
+      onChanged: (val) => setState(() => _choice = val!),
     ),
   );
+
+  String _ordinal(int n) => switch (n) {
+    1 => '1st',
+    2 => '2nd',
+    3 => '3rd',
+    4 => '4th',
+    5 => '5th',
+    _ => '$n'
+  };
 }

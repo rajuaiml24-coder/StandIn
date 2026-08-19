@@ -6,121 +6,248 @@ class PolicyEngine {
 
   AttendanceSummary summarize(
     AttendancePolicy policy,
+    AttendanceCalendar calendar,
     Iterable<AttendanceRecord> records,
     DateTime now, {
     bool isHolidayCalendarConfigured = false,
   }) {
     final periodRange = _getPeriodRange(policy, now);
-    
     if (periodRange == null) {
       return AttendanceSummary(
         actual: 0,
         expected: 0,
+        conductedToDate: 0,
+        totalConducted: 0,
         percent: 0,
+        maximumPossible: 0,
+        maximumPercent: 0,
         isSafe: true,
+        isAchievable: true,
         safeToMiss: 0,
         unitsToRecover: 0,
+        shortfall: 0,
+        unmarkedCount: 0,
         periodLabel: 'Incomplete Period',
         isPolicyIncomplete: true,
+        status: PeriodStatus.onTrack,
+        attendedLabel: '',
+        conductedLabel: '',
       );
     }
 
-    // Past and current records in this period
-    final periodRecords = records.where((r) => 
-      !r.date.isBefore(periodRange.start) && 
-      !r.date.isAfter(periodRange.end)
-    ).toList();
-
-    // Actual stats based on records so far
-    final countablePast = periodRecords.where((r) => 
-      r.status != AttendanceStatus.holiday && r.status != AttendanceStatus.weeklyOff
+    return _calculateSummary(
+      policy: policy,
+      calendar: calendar,
+      records: records,
+      range: periodRange,
+      now: now,
+      periodLabel: _getPeriodLabel(policy.evaluationPeriod, now, periodRange),
+      isHolidayCalendarConfigured: isHolidayCalendarConfigured,
+      treatUnmarkedAsAbsent: false, 
     );
+  }
 
-    final actual = countablePast.fold<double>(0.0, (sum, r) => sum + r.actualUnits);
-    final expectedToDate = countablePast.fold<double>(0.0, (sum, r) => sum + r.expectedUnits);
+  AttendanceSummary summarizeMonth(
+    AttendancePolicy policy,
+    AttendanceCalendar calendar,
+    Iterable<AttendanceRecord> records,
+    int year,
+    int month,
+    DateTime now, {
+    bool isHolidayCalendarConfigured = false,
+  }) {
+    final monthStart = DateTime(year, month, 1);
+    final monthEnd = DateTime(year, month + 1, 0, 23, 59, 59);
     
-    final percent = expectedToDate == 0 ? 0.0 : actual / expectedToDate * 100;
-    final periodLabel = _getPeriodLabel(policy.evaluationPeriod, now, periodRange);
-
-    if (policy.minimumPercent == null) {
+    final currentMonthStart = DateTime(now.year, now.month, 1);
+    if (monthStart.isAfter(currentMonthStart)) {
       return AttendanceSummary(
-        actual: actual,
-        expected: expectedToDate,
-        percent: percent,
+        actual: 0,
+        expected: 0,
+        conductedToDate: 0,
+        totalConducted: 0,
+        percent: 0,
+        maximumPossible: 0,
+        maximumPercent: 0,
         isSafe: true,
+        isAchievable: true,
         safeToMiss: 0,
         unitsToRecover: 0,
-        periodLabel: periodLabel,
-        totalExpectedInPeriod: 0,
-        isPolicyIncomplete: true,
-        isEstimation: !isHolidayCalendarConfigured,
+        shortfall: 0,
+        unmarkedCount: 0,
+        periodLabel: 'Not started',
+        progressLabel: 'Not started',
+        status: PeriodStatus.onTrack,
+        attendedLabel: '',
+        conductedLabel: '',
       );
     }
 
-    // Capacity calculation: past countable + future working days
-    final todayStart = DateTime(now.year, now.month, now.day);
-    final futureExpected = _calculateFutureExpectedUnits(todayStart, periodRange.end, policy, periodRecords);
-    final totalExpectedInPeriod = expectedToDate + futureExpected;
-    
-    final target = policy.minimumPercent! / 100;
-    
-    final totalRequired = totalExpectedInPeriod * target;
-    final remainingToAttend = (totalRequired - actual).clamp(0, double.infinity);
-    final safeToMiss = (futureExpected - remainingToAttend).clamp(0, double.infinity).toDouble();
-
-    final unitsToRecover = target >= 1 
-        ? (actual < totalExpectedInPeriod ? double.infinity : 0.0) 
-        : ((target * expectedToDate - actual) / (1 - target)).clamp(0, double.infinity).toDouble();
-
-    return AttendanceSummary(
-      actual: actual,
-      expected: expectedToDate,
-      percent: percent,
-      isSafe: percent >= policy.minimumPercent!,
-      safeToMiss: safeToMiss,
-      unitsToRecover: unitsToRecover,
-      periodLabel: periodLabel,
-      totalExpectedInPeriod: totalExpectedInPeriod,
-      isEstimation: !isHolidayCalendarConfigured,
-      recoveryMessage: _generateRecoveryMessage(unitsToRecover, policy.basis),
+    return _calculateSummary(
+      policy: policy,
+      calendar: calendar,
+      records: records,
+      range: (start: monthStart, end: monthEnd),
+      now: now,
+      periodLabel: _monthName(month),
+      isHolidayCalendarConfigured: isHolidayCalendarConfigured,
+      treatUnmarkedAsAbsent: false,
     );
   }
 
-  String _generateRecoveryMessage(double units, CalculationBasis basis) {
-    if (units <= 0) return '';
-    final unitName = switch (basis) {
-      CalculationBasis.hours => 'hours',
-      CalculationBasis.days => 'working days',
-      CalculationBasis.periods => 'classes',
-    };
-    final value = units.toStringAsFixed(1).replaceAll(RegExp(r'\.0$'), '');
-    return 'Attend the next $value $unitName';
-  }
+  AttendanceSummary _calculateSummary({
+    required AttendancePolicy policy,
+    required AttendanceCalendar calendar,
+    required Iterable<AttendanceRecord> records,
+    required ({DateTime start, DateTime end}) range,
+    required DateTime now,
+    required String periodLabel,
+    required bool isHolidayCalendarConfigured,
+    required bool treatUnmarkedAsAbsent,
+  }) {
+    final todayStart = DateTime(now.year, now.month, now.day);
+    
+    final Map<String, AttendanceRecord> dailyRecords = {};
+    for (var r in records) {
+      if (r.date.isBefore(range.start) || r.date.isAfter(range.end)) continue;
+      final key = r.date.toIso8601String().substring(0, 10);
+      dailyRecords[key] = r; 
+    }
 
-  double _calculateFutureExpectedUnits(
-    DateTime from, 
-    DateTime to, 
-    AttendancePolicy policy,
-    List<AttendanceRecord> records,
-  ) {
-    double total = 0;
-    // Start from today, but only count if NOT already in records
-    DateTime current = from;
-    while (!current.isAfter(to)) {
-      final isWeeklyOff = policy.weeklyOffs.contains(current.weekday);
-      
-      final hasRecord = records.any((r) => 
-        r.date.year == current.year && 
-        r.date.month == current.month && 
-        r.date.day == current.day
-      );
+    double actual = 0;
+    double conductedToDate = 0;
+    double totalConducted = 0;
+    double futureCapacity = 0;
+    double unmarkedUnits = 0;
+    int unmarkedCount = 0;
+    int recordsInMonthToDate = 0;
 
-      if (!isWeeklyOff && !hasRecord) {
-        total += policy.fullUnit;
+    DateTime current = range.start;
+    while (!current.isAfter(range.end)) {
+      final key = current.toIso8601String().substring(0, 10);
+      final record = dailyRecords[key];
+      final isNonWorking = calendar.isNonWorkingDay(current);
+
+      if (current.isAfter(todayStart)) {
+        if (!isNonWorking) {
+          totalConducted += policy.fullUnit;
+          futureCapacity += policy.fullUnit;
+        }
+      } else {
+        if (record != null) {
+          actual += record.actualUnits;
+          conductedToDate += record.expectedUnits;
+          totalConducted += record.expectedUnits;
+          recordsInMonthToDate++;
+        } else if (!isNonWorking) {
+          unmarkedCount++;
+          unmarkedUnits += policy.fullUnit;
+          totalConducted += policy.fullUnit;
+          conductedToDate += policy.fullUnit;
+        }
       }
       current = current.add(const Duration(days: 1));
     }
-    return total;
+
+    final double percent;
+    if (conductedToDate == 0) {
+      percent = 0.0;
+    } else {
+      percent = (actual / conductedToDate * 100);
+    }
+
+    final maximumPossible = actual + unmarkedUnits + futureCapacity;
+    final maximumPercent = totalConducted == 0 ? 0.0 : (maximumPossible / totalConducted * 100);
+
+    // Natural Labeling
+    final unitLabelLong = policy.basis.label(actual);
+    final unitLabelContext = policy.basis.label(totalConducted, isContext: true);
+    
+    final actualVal = actual.toStringAsFixed(policy.basis == CalculationBasis.hours ? 1 : 0).replaceAll(RegExp(r'\.0$'), '');
+    final conductedToDateVal = conductedToDate.toStringAsFixed(policy.basis == CalculationBasis.hours ? 1 : 0).replaceAll(RegExp(r'\.0$'), '');
+    
+    final attendedLabel = '$actualVal $unitLabelLong attended';
+    final conductedLabel = '$actualVal of $conductedToDateVal $unitLabelContext so far';
+    final progressLabel = '$actualVal of $conductedToDateVal $unitLabelContext so far';
+
+    // Status Logic
+    PeriodStatus status = PeriodStatus.onTrack;
+    String recoveryMessage = '';
+    double safeToMiss = 0;
+    double unitsToRecover = 0;
+    double shortfall = 0;
+    bool isSafe = true;
+    bool isAchievable = true;
+
+    if (policy.minimumPercent != null) {
+      final targetFraction = policy.minimumPercent! / 100;
+      final requiredUnits = totalConducted * targetFraction;
+      final gap = requiredUnits - actual;
+      final capacity = futureCapacity + unmarkedUnits;
+
+      isSafe = actual >= requiredUnits;
+      isAchievable = maximumPossible >= requiredUnits;
+
+      if (gap <= 0) {
+        status = PeriodStatus.onTrack;
+        isSafe = true;
+      } else if (gap > capacity) {
+        status = PeriodStatus.impossible;
+        isAchievable = false;
+        shortfall = gap - capacity;
+        recoveryMessage = 'Target no longer achievable. Maximum possible is ${maximumPercent.toStringAsFixed(1)}%.';
+      } else {
+        final riskFactor = gap / capacity;
+        if (riskFactor >= 0.9) {
+          status = PeriodStatus.atRisk;
+        } else {
+          status = PeriodStatus.onTrack;
+        }
+        
+        unitsToRecover = gap;
+        double displayUnits = unitsToRecover;
+        if (policy.basis == CalculationBasis.days || policy.basis == CalculationBasis.periods) {
+          displayUnits = unitsToRecover.ceilToDouble();
+        }
+
+        final value = displayUnits.toStringAsFixed(policy.basis == CalculationBasis.hours ? 1 : 0).replaceAll(RegExp(r'\.0$'), '');
+        final recoveryUnitLabel = policy.basis.label(displayUnits);
+        recoveryMessage = 'Attend $value more $recoveryUnitLabel during this period to reach ${policy.minimumPercent!.toStringAsFixed(0)}%';
+      }
+
+      if (isAchievable) {
+        safeToMiss = maximumPossible - requiredUnits;
+      }
+    }
+
+    // If no records and we are not treating unmarked as absent, show specific state
+    final bool noData = !treatUnmarkedAsAbsent && recordsInMonthToDate == 0 && (conductedToDate == 0);
+
+    return AttendanceSummary(
+      actual: actual,
+      expected: conductedToDate,
+      conductedToDate: conductedToDate,
+      totalConducted: totalConducted,
+      percent: percent,
+      maximumPossible: maximumPossible,
+      maximumPercent: maximumPercent,
+      isSafe: isSafe,
+      isAchievable: isAchievable,
+      safeToMiss: safeToMiss,
+      unitsToRecover: unitsToRecover,
+      shortfall: shortfall,
+      unmarkedCount: unmarkedCount,
+      periodLabel: noData ? 'Attendance not marked' : periodLabel,
+      totalExpectedInPeriod: totalConducted,
+      isPolicyIncomplete: policy.minimumPercent == null,
+      isEstimation: !calendar.isConfigured || !isHolidayCalendarConfigured,
+      recoveryMessage: recoveryMessage,
+      progressLabel: progressLabel,
+      status: status,
+      attendedLabel: attendedLabel,
+      conductedLabel: conductedLabel,
+      maxPossiblePercent: maximumPercent,
+    );
   }
 
   ({DateTime start, DateTime end})? _getPeriodRange(AttendancePolicy policy, DateTime now) {

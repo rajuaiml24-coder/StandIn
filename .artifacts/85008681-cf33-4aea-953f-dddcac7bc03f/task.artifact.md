@@ -1,15 +1,10 @@
-- [ ] Download compatible WASM assets
-    - [ ] Fetch `drift_worker.js` (v2.31.0)
-    - [ ] Fetch `sqlite3.wasm` (v2.4.3)
-- [ ] Modernize Web Connection logic
-    - [ ] Update `lib/src/data/local/connection/web.dart` to use `driftDatabase`
-- [ ] Cleanup Web assets in HTML
-    - [ ] Remove `sql-wasm.js` script from `web/index.html`
-- [ ] Build and Verify
-    - [ ] `flutter clean`
-    - [ ] `flutter pub get`
-    - [ ] `flutter analyze`
-    - [ ] `flutter test`
-    - [ ] `flutter build web`
-    - [ ] `flutter run -d chrome`
-- [ ] Manual verification in Browser DevTools
+- [/] Implementation: Organization Discovery & Context Recovery
+    - [ ] Update `FirestoreOrgRemote` with search and granular fetch methods
+    - [ ] Implement hierarchical context recovery in `OrganizationRepository` (`syncFollowContext`)
+    - [ ] Add `searchOrganizations` to `OrganizationRepository` with role filtering
+    - [ ] Update `SyncEngine` to trigger context recovery on new login/device
+    - [ ] Refactor `OrganizationSearchPage` to remove mocks and use real discovery
+- [ ] Verification
+    - [ ] Verify role-based prefix search (Colleges vs Companies)
+    - [ ] Verify full context recovery on new device (Org/Branch/Sem/Rules/Calendar)
+    - [ ] Run logic and resolution hierarchy tests

@@ -5,7 +5,7 @@ import 'package:standin/src/data/organization_repository.dart';
 import 'package:standin/src/data/remote/firestore_org_remote.dart';
 import 'package:standin/src/domain/attendance.dart';
 import 'package:mocktail/mocktail.dart';
-import 'package:drift/drift.dart';
+import 'package:drift/drift.dart' hide isNotNull;
 
 class MockFirestoreOrgRemote extends Mock implements FirestoreOrgRemote {}
 

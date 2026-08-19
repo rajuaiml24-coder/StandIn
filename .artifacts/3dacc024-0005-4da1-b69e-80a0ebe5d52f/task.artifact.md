@@ -1,4 +1,7 @@
-- [ ] Update `StandInDatabase` constructor with `DriftWebOptions` in `lib/src/data/local/standin_database.dart`
+- [ ] Create `lib/src/data/local/connection/connection.dart` (interface)
+- [ ] Create `lib/src/data/local/connection/native.dart` (native implementation)
+- [ ] Create `lib/src/data/local/connection/web.dart` (web implementation)
+- [ ] Update `StandInDatabase` to use conditional imports and the new `connect()` function
 - [ ] Run `flutter analyze`
 - [ ] Run `flutter test`
 - [ ] Run `flutter build web`

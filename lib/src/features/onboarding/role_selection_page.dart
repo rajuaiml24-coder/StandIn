@@ -17,42 +17,50 @@ class RoleSelectionPage extends StatelessWidget {
         icon: const Icon(Icons.arrow_back, color: navy),
         onPressed: controller.back,
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: Image.asset('assets/brand/standin_logo.png', height: 28),
+        ),
+      ],
     ),
     body: SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Choose your role',
-              style: TextStyle(
-                fontSize: 32,
-                fontWeight: FontWeight.w900,
-                color: navy,
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Choose your role',
+                style: TextStyle(
+                  fontSize: 32,
+                  fontWeight: FontWeight.w900,
+                  color: navy,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Select how you want to track your attendance.',
-              style: TextStyle(color: Color(0xFF667085), fontSize: 16),
-            ),
-            const SizedBox(height: 40),
-            _RoleCard(
-              icon: Icons.school_rounded, 
-              title: 'I am a student', 
-              subtitle: 'Manage classes and credits',
-              onTap: () => controller.start(AppRole.student),
-              isPrimary: true,
-            ),
-            const SizedBox(height: 16),
-            _RoleCard(
-              icon: Icons.business_center_rounded, 
-              title: 'I am an employee', 
-              subtitle: 'Track workdays and shifts',
-              onTap: () => controller.start(AppRole.employee),
-            ),
-          ],
+              const SizedBox(height: 8),
+              const Text(
+                'Select how you want to track your attendance.',
+                style: TextStyle(color: Color(0xFF667085), fontSize: 16),
+              ),
+              const SizedBox(height: 40),
+              _RoleCard(
+                icon: Icons.school_rounded, 
+                title: 'I am a student', 
+                subtitle: 'Manage classes and credits',
+                onTap: () => controller.start(AppRole.student),
+                isPrimary: true,
+              ),
+              const SizedBox(height: 16),
+              _RoleCard(
+                icon: Icons.business_center_rounded, 
+                title: 'I am an employee', 
+                subtitle: 'Track workdays and shifts',
+                onTap: () => controller.start(AppRole.employee),
+              ),
+            ],
+          ),
         ),
       ),
     ),

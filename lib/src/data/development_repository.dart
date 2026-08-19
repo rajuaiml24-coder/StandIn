@@ -30,6 +30,12 @@ class DevelopmentAttendanceRepository implements AttendanceRepository {
 
   @override
   Future<void> save(AttendanceRecord record) async {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    if (record.date.isAfter(todayDate)) {
+      throw ArgumentError('Cannot mark attendance for future dates');
+    }
+    
     _records.removeWhere((item) => _sameDay(item.date, record.date));
     _records.add(record);
     _changes.add(List.unmodifiable(_records));

@@ -1,5 +1,8 @@
+import 'dart:async';
 import 'package:drift/drift.dart';
-import 'package:drift_flutter/drift_flutter.dart';
+import 'connection/connection.dart'
+    if (dart.library.js_interop) 'connection/web.dart'
+    if (dart.library.io) 'connection/native.dart' as impl;
 
 part 'standin_database.g.dart';
 
@@ -23,10 +26,13 @@ class OrganizationRows extends Table {
   TextColumn get id => text()();
   TextColumn get name => text()();
   TextColumn get type => text()();
+  TextColumn get branch => text().nullable()();
   BoolColumn get isVerified => boolean().withDefault(const Constant(false))();
   BoolColumn get isHolidayCalendarConfigured => boolean().withDefault(const Constant(false))();
+  IntColumn get followerCount => integer().withDefault(const Constant(0))();
   TextColumn get activePolicyId => text().nullable()();
   TextColumn get activeCalendarId => text().nullable()();
+  TextColumn get createdBy => text().nullable()();
   DateTimeColumn get updatedAt => dateTime()();
   @override Set<Column<Object>> get primaryKey => {id};
 }
@@ -49,6 +55,31 @@ class FollowRows extends Table {
   RealColumn get personalTargetPercent => real().nullable()();
   TextColumn get status => text()();
   DateTimeColumn get followedAt => dateTime()();
+  TextColumn get personalBasis => text().nullable()();
+  TextColumn get personalEvaluationPeriod => text().nullable()();
+  RealColumn get personalFullUnit => real().nullable()();
+  RealColumn get personalHalfUnit => real().nullable()();
+  DateTimeColumn get personalStartDate => dateTime().nullable()();
+  DateTimeColumn get personalEndDate => dateTime().nullable()();
+  TextColumn get personalWeeklyOffs => text().nullable()(); // JSON string [7]
+  TextColumn get personalOffSaturdays => text().nullable()(); // JSON string [2, 4]
+  TextColumn get personalHolidays => text().nullable()(); // JSON string list
+  BoolColumn get isPersonalCalendarConfigured => boolean().withDefault(const Constant(false))();
+  @override
+  Set<Column<Object>> get primaryKey => {id};
+}
+
+class CalendarRows extends Table {
+  TextColumn get id => text()();
+  TextColumn get organizationId => text()();
+  TextColumn get scopeId => text()();
+  IntColumn get version => integer()();
+  DateTimeColumn get effectiveFrom => dateTime()();
+  TextColumn get weeklyOffs => text()(); // JSON string
+  TextColumn get offSaturdays => text()(); // JSON string
+  TextColumn get holidays => text().nullable()(); // JSON string list
+  BoolColumn get isConfigured => boolean().withDefault(const Constant(true))();
+  DateTimeColumn get updatedAt => dateTime()();
   @override Set<Column<Object>> get primaryKey => {id};
 }
 
@@ -74,6 +105,7 @@ class OrganizationPolicyRows extends Table {
   TextColumn get calculationBasis => text()();
   RealColumn get fullUnit => real()();
   RealColumn get halfUnit => real()();
+  TextColumn get weeklyOffs => text().withDefault(const Constant('[]'))(); // JSON string
   DateTimeColumn get startDate => dateTime().nullable()();
   DateTimeColumn get endDate => dateTime().nullable()();
   DateTimeColumn get updatedAt => dateTime()();
@@ -109,16 +141,9 @@ class SyncMetadataRows extends Table {
   @override Set<Column<Object>> get primaryKey => {key};
 }
 
-@DriftDatabase(tables: [AttendanceTable, OrganizationRows, ScopeRows, FollowRows, MembershipRows, UserProfileRows, OrganizationPolicyRows, SyncQueueRows, SyncMetadataRows])
+@DriftDatabase(tables: [AttendanceTable, OrganizationRows, ScopeRows, FollowRows, MembershipRows, UserProfileRows, OrganizationPolicyRows, CalendarRows, SyncQueueRows, SyncMetadataRows])
 class StandInDatabase extends _$StandInDatabase {
-  StandInDatabase()
-      : super(driftDatabase(
-          name: 'standin',
-          web: DriftWebOptions(
-            sqlite3Wasm: Uri.parse('sqlite3.wasm'),
-            driftWorker: Uri.parse('drift_worker.js'),
-          ),
-        ));
+  StandInDatabase(String dbName) : super(impl.connect(dbName));
   StandInDatabase.executor(super.e);
   @override
   int get schemaVersion => 1;
@@ -147,6 +172,16 @@ class StandInDatabase extends _$StandInDatabase {
   Future<void> savePolicy(OrganizationPolicyRowsCompanion row) =>
       into(organizationPolicyRows).insertOnConflictUpdate(row);
 
+  Future<void> saveCalendar(CalendarRowsCompanion row) =>
+      into(calendarRows).insertOnConflictUpdate(row);
+
+  Future<CalendarRow?> calendarAt(String organizationId, String scopeId, DateTime date) =>
+      (select(calendarRows)..where((row) => 
+        row.organizationId.equals(organizationId) & 
+        row.scopeId.equals(scopeId) &
+        row.effectiveFrom.isSmallerOrEqualValue(date)
+      )..orderBy([(row) => OrderingTerm.desc(row.effectiveFrom)])..limit(1)).getSingleOrNull();
+
   Future<OrganizationPolicyRow?> policyAt(String organizationId, String scopeId, DateTime date) =>
       (select(organizationPolicyRows)..where((row) => 
         row.organizationId.equals(organizationId) & 
@@ -163,10 +198,22 @@ class StandInDatabase extends _$StandInDatabase {
   Future<FollowRow?> getFollow(String id) =>
       (select(followRows)..where((row) => row.id.equals(id))).getSingleOrNull();
 
+  Stream<FollowRow?> watchFollow(String id) =>
+      (select(followRows)..where((row) => row.id.equals(id))).watchSingleOrNull();
+
   Future<UserProfileRow?> getUserProfile(String uid) =>
       (select(userProfileRows)..where((row) => row.uid.equals(uid))).getSingleOrNull();
 
-  Future<void> enqueue(SyncQueueRowsCompanion row) => into(syncQueueRows).insertOnConflictUpdate(row);
+  Stream<UserProfileRow?> watchUserProfile(String uid) =>
+      (select(userProfileRows)..where((row) => row.uid.equals(uid))).watchSingleOrNull();
+
+  final _enqueueController = StreamController<void>.broadcast();
+  Stream<void> get onEnqueue => _enqueueController.stream;
+
+  Future<void> enqueue(SyncQueueRowsCompanion row) async {
+    await into(syncQueueRows).insertOnConflictUpdate(row);
+    _enqueueController.add(null);
+  }
 
   Future<List<SyncQueueRow>> dueSyncOperations(DateTime now, {int limit = 25}) =>
       (select(syncQueueRows)..where((row) => row.nextAttemptAt.isSmallerOrEqualValue(now))..orderBy([(row) => OrderingTerm.asc(row.createdAt)])..limit(limit)).get();

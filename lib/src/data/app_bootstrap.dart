@@ -5,21 +5,46 @@ import 'local/standin_database.dart';
 import 'local_first_attendance_repository.dart';
 import 'remote/firestore_attendance_remote.dart';
 import 'sync/sync_engine.dart';
+import 'organization_repository.dart';
 import '../features/attendance/attendance_controller.dart';
 import '../domain/attendance.dart';
 import '../domain/policy_engine.dart';
 
+import 'remote/firestore_user_remote.dart';
+import 'remote/firestore_org_remote.dart';
+
 /// Production composition root after Firebase.initializeApp is configured per platform.
 class AppBootstrap {
-  AppBootstrap(this.database, this.authService, this.remote);
+  AppBootstrap(this.database, this.authService, this.attendanceRemote, this.userRemote, this.orgRemote, this.orgRepository);
   final StandInDatabase database;
   final AuthService authService;
-  final FirestoreAttendanceRemote remote;
+  final FirestoreAttendanceRemote attendanceRemote;
+  final FirestoreUserRemote userRemote;
+  final FirestoreOrgRemote orgRemote;
+  final OrganizationRepository orgRepository;
 
-  AttendanceController attendanceController({required String uid, required String organizationId, required String scopeId, required AttendancePolicy policy}) => 
-    AttendanceController(LocalFirstAttendanceRepository(database, uid: uid, organizationId: organizationId, scopeId: scopeId), const PolicyEngine(), policy);
+  AttendanceController attendanceController({required String uid, required String organizationId, required String scopeId, required AttendancePolicy policy, required AttendanceCalendar calendar}) => 
+    AttendanceController(LocalFirstAttendanceRepository(database, uid: uid, organizationId: organizationId, scopeId: scopeId), const PolicyEngine(), policy, calendar);
 
-  SyncEngine syncEngine(String uid) => SyncEngine(database, remote, uid: uid);
+  SyncEngine syncEngine(String uid) => SyncEngine(
+        database,
+        attendanceRemote,
+        userRemote,
+        orgRemote,
+        orgRepository,
+        uid: uid,
+      );
 
-  factory AppBootstrap.firebase(StandInDatabase database, AuthService authService) => AppBootstrap(database, authService, FirestoreAttendanceRemote(FirebaseFirestore.instance));
+  factory AppBootstrap.firebase(StandInDatabase database, AuthService authService) {
+    final fs = FirebaseFirestore.instance;
+    final orgRemote = FirestoreOrgRemote(fs);
+    return AppBootstrap(
+      database, 
+      authService, 
+      FirestoreAttendanceRemote(fs),
+      FirestoreUserRemote(fs),
+      orgRemote,
+      OrganizationRepository(database, orgRemote),
+    );
+  }
 }

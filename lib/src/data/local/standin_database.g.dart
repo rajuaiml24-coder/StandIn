@@ -652,6 +652,11 @@ class $OrganizationRowsTable extends OrganizationRows
   late final GeneratedColumn<String> type = GeneratedColumn<String>(
       'type', aliasedName, false,
       type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _branchMeta = const VerificationMeta('branch');
+  @override
+  late final GeneratedColumn<String> branch = GeneratedColumn<String>(
+      'branch', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _isVerifiedMeta =
       const VerificationMeta('isVerified');
   @override
@@ -673,6 +678,14 @@ class $OrganizationRowsTable extends OrganizationRows
           defaultConstraints: GeneratedColumn.constraintIsAlways(
               'CHECK ("is_holiday_calendar_configured" IN (0, 1))'),
           defaultValue: const Constant(false));
+  static const VerificationMeta _followerCountMeta =
+      const VerificationMeta('followerCount');
+  @override
+  late final GeneratedColumn<int> followerCount = GeneratedColumn<int>(
+      'follower_count', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
   static const VerificationMeta _activePolicyIdMeta =
       const VerificationMeta('activePolicyId');
   @override
@@ -685,6 +698,12 @@ class $OrganizationRowsTable extends OrganizationRows
   late final GeneratedColumn<String> activeCalendarId = GeneratedColumn<String>(
       'active_calendar_id', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _createdByMeta =
+      const VerificationMeta('createdBy');
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+      'created_by', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _updatedAtMeta =
       const VerificationMeta('updatedAt');
   @override
@@ -696,10 +715,13 @@ class $OrganizationRowsTable extends OrganizationRows
         id,
         name,
         type,
+        branch,
         isVerified,
         isHolidayCalendarConfigured,
+        followerCount,
         activePolicyId,
         activeCalendarId,
+        createdBy,
         updatedAt
       ];
   @override
@@ -729,6 +751,10 @@ class $OrganizationRowsTable extends OrganizationRows
     } else if (isInserting) {
       context.missing(_typeMeta);
     }
+    if (data.containsKey('branch')) {
+      context.handle(_branchMeta,
+          branch.isAcceptableOrUnknown(data['branch']!, _branchMeta));
+    }
     if (data.containsKey('is_verified')) {
       context.handle(
           _isVerifiedMeta,
@@ -742,6 +768,12 @@ class $OrganizationRowsTable extends OrganizationRows
               data['is_holiday_calendar_configured']!,
               _isHolidayCalendarConfiguredMeta));
     }
+    if (data.containsKey('follower_count')) {
+      context.handle(
+          _followerCountMeta,
+          followerCount.isAcceptableOrUnknown(
+              data['follower_count']!, _followerCountMeta));
+    }
     if (data.containsKey('active_policy_id')) {
       context.handle(
           _activePolicyIdMeta,
@@ -753,6 +785,10 @@ class $OrganizationRowsTable extends OrganizationRows
           _activeCalendarIdMeta,
           activeCalendarId.isAcceptableOrUnknown(
               data['active_calendar_id']!, _activeCalendarIdMeta));
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(_createdByMeta,
+          createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta));
     }
     if (data.containsKey('updated_at')) {
       context.handle(_updatedAtMeta,
@@ -775,15 +811,21 @@ class $OrganizationRowsTable extends OrganizationRows
           .read(DriftSqlType.string, data['${effectivePrefix}name'])!,
       type: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}type'])!,
+      branch: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}branch']),
       isVerified: attachedDatabase.typeMapping
           .read(DriftSqlType.bool, data['${effectivePrefix}is_verified'])!,
       isHolidayCalendarConfigured: attachedDatabase.typeMapping.read(
           DriftSqlType.bool,
           data['${effectivePrefix}is_holiday_calendar_configured'])!,
+      followerCount: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}follower_count'])!,
       activePolicyId: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}active_policy_id']),
       activeCalendarId: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}active_calendar_id']),
+      createdBy: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}created_by']),
       updatedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
     );
@@ -799,19 +841,25 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
   final String id;
   final String name;
   final String type;
+  final String? branch;
   final bool isVerified;
   final bool isHolidayCalendarConfigured;
+  final int followerCount;
   final String? activePolicyId;
   final String? activeCalendarId;
+  final String? createdBy;
   final DateTime updatedAt;
   const OrganizationRow(
       {required this.id,
       required this.name,
       required this.type,
+      this.branch,
       required this.isVerified,
       required this.isHolidayCalendarConfigured,
+      required this.followerCount,
       this.activePolicyId,
       this.activeCalendarId,
+      this.createdBy,
       required this.updatedAt});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -819,14 +867,21 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
     map['id'] = Variable<String>(id);
     map['name'] = Variable<String>(name);
     map['type'] = Variable<String>(type);
+    if (!nullToAbsent || branch != null) {
+      map['branch'] = Variable<String>(branch);
+    }
     map['is_verified'] = Variable<bool>(isVerified);
     map['is_holiday_calendar_configured'] =
         Variable<bool>(isHolidayCalendarConfigured);
+    map['follower_count'] = Variable<int>(followerCount);
     if (!nullToAbsent || activePolicyId != null) {
       map['active_policy_id'] = Variable<String>(activePolicyId);
     }
     if (!nullToAbsent || activeCalendarId != null) {
       map['active_calendar_id'] = Variable<String>(activeCalendarId);
+    }
+    if (!nullToAbsent || createdBy != null) {
+      map['created_by'] = Variable<String>(createdBy);
     }
     map['updated_at'] = Variable<DateTime>(updatedAt);
     return map;
@@ -837,14 +892,20 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
       id: Value(id),
       name: Value(name),
       type: Value(type),
+      branch:
+          branch == null && nullToAbsent ? const Value.absent() : Value(branch),
       isVerified: Value(isVerified),
       isHolidayCalendarConfigured: Value(isHolidayCalendarConfigured),
+      followerCount: Value(followerCount),
       activePolicyId: activePolicyId == null && nullToAbsent
           ? const Value.absent()
           : Value(activePolicyId),
       activeCalendarId: activeCalendarId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeCalendarId),
+      createdBy: createdBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdBy),
       updatedAt: Value(updatedAt),
     );
   }
@@ -856,11 +917,14 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
       id: serializer.fromJson<String>(json['id']),
       name: serializer.fromJson<String>(json['name']),
       type: serializer.fromJson<String>(json['type']),
+      branch: serializer.fromJson<String?>(json['branch']),
       isVerified: serializer.fromJson<bool>(json['isVerified']),
       isHolidayCalendarConfigured:
           serializer.fromJson<bool>(json['isHolidayCalendarConfigured']),
+      followerCount: serializer.fromJson<int>(json['followerCount']),
       activePolicyId: serializer.fromJson<String?>(json['activePolicyId']),
       activeCalendarId: serializer.fromJson<String?>(json['activeCalendarId']),
+      createdBy: serializer.fromJson<String?>(json['createdBy']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
   }
@@ -871,11 +935,14 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
       'id': serializer.toJson<String>(id),
       'name': serializer.toJson<String>(name),
       'type': serializer.toJson<String>(type),
+      'branch': serializer.toJson<String?>(branch),
       'isVerified': serializer.toJson<bool>(isVerified),
       'isHolidayCalendarConfigured':
           serializer.toJson<bool>(isHolidayCalendarConfigured),
+      'followerCount': serializer.toJson<int>(followerCount),
       'activePolicyId': serializer.toJson<String?>(activePolicyId),
       'activeCalendarId': serializer.toJson<String?>(activeCalendarId),
+      'createdBy': serializer.toJson<String?>(createdBy),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
   }
@@ -884,23 +951,29 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
           {String? id,
           String? name,
           String? type,
+          Value<String?> branch = const Value.absent(),
           bool? isVerified,
           bool? isHolidayCalendarConfigured,
+          int? followerCount,
           Value<String?> activePolicyId = const Value.absent(),
           Value<String?> activeCalendarId = const Value.absent(),
+          Value<String?> createdBy = const Value.absent(),
           DateTime? updatedAt}) =>
       OrganizationRow(
         id: id ?? this.id,
         name: name ?? this.name,
         type: type ?? this.type,
+        branch: branch.present ? branch.value : this.branch,
         isVerified: isVerified ?? this.isVerified,
         isHolidayCalendarConfigured:
             isHolidayCalendarConfigured ?? this.isHolidayCalendarConfigured,
+        followerCount: followerCount ?? this.followerCount,
         activePolicyId:
             activePolicyId.present ? activePolicyId.value : this.activePolicyId,
         activeCalendarId: activeCalendarId.present
             ? activeCalendarId.value
             : this.activeCalendarId,
+        createdBy: createdBy.present ? createdBy.value : this.createdBy,
         updatedAt: updatedAt ?? this.updatedAt,
       );
   OrganizationRow copyWithCompanion(OrganizationRowsCompanion data) {
@@ -908,17 +981,22 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
       id: data.id.present ? data.id.value : this.id,
       name: data.name.present ? data.name.value : this.name,
       type: data.type.present ? data.type.value : this.type,
+      branch: data.branch.present ? data.branch.value : this.branch,
       isVerified:
           data.isVerified.present ? data.isVerified.value : this.isVerified,
       isHolidayCalendarConfigured: data.isHolidayCalendarConfigured.present
           ? data.isHolidayCalendarConfigured.value
           : this.isHolidayCalendarConfigured,
+      followerCount: data.followerCount.present
+          ? data.followerCount.value
+          : this.followerCount,
       activePolicyId: data.activePolicyId.present
           ? data.activePolicyId.value
           : this.activePolicyId,
       activeCalendarId: data.activeCalendarId.present
           ? data.activeCalendarId.value
           : this.activeCalendarId,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
   }
@@ -929,18 +1007,31 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('type: $type, ')
+          ..write('branch: $branch, ')
           ..write('isVerified: $isVerified, ')
           ..write('isHolidayCalendarConfigured: $isHolidayCalendarConfigured, ')
+          ..write('followerCount: $followerCount, ')
           ..write('activePolicyId: $activePolicyId, ')
           ..write('activeCalendarId: $activeCalendarId, ')
+          ..write('createdBy: $createdBy, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode => Object.hash(id, name, type, isVerified,
-      isHolidayCalendarConfigured, activePolicyId, activeCalendarId, updatedAt);
+  int get hashCode => Object.hash(
+      id,
+      name,
+      type,
+      branch,
+      isVerified,
+      isHolidayCalendarConfigured,
+      followerCount,
+      activePolicyId,
+      activeCalendarId,
+      createdBy,
+      updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -948,11 +1039,14 @@ class OrganizationRow extends DataClass implements Insertable<OrganizationRow> {
           other.id == this.id &&
           other.name == this.name &&
           other.type == this.type &&
+          other.branch == this.branch &&
           other.isVerified == this.isVerified &&
           other.isHolidayCalendarConfigured ==
               this.isHolidayCalendarConfigured &&
+          other.followerCount == this.followerCount &&
           other.activePolicyId == this.activePolicyId &&
           other.activeCalendarId == this.activeCalendarId &&
+          other.createdBy == this.createdBy &&
           other.updatedAt == this.updatedAt);
 }
 
@@ -960,20 +1054,26 @@ class OrganizationRowsCompanion extends UpdateCompanion<OrganizationRow> {
   final Value<String> id;
   final Value<String> name;
   final Value<String> type;
+  final Value<String?> branch;
   final Value<bool> isVerified;
   final Value<bool> isHolidayCalendarConfigured;
+  final Value<int> followerCount;
   final Value<String?> activePolicyId;
   final Value<String?> activeCalendarId;
+  final Value<String?> createdBy;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
   const OrganizationRowsCompanion({
     this.id = const Value.absent(),
     this.name = const Value.absent(),
     this.type = const Value.absent(),
+    this.branch = const Value.absent(),
     this.isVerified = const Value.absent(),
     this.isHolidayCalendarConfigured = const Value.absent(),
+    this.followerCount = const Value.absent(),
     this.activePolicyId = const Value.absent(),
     this.activeCalendarId = const Value.absent(),
+    this.createdBy = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
   });
@@ -981,10 +1081,13 @@ class OrganizationRowsCompanion extends UpdateCompanion<OrganizationRow> {
     required String id,
     required String name,
     required String type,
+    this.branch = const Value.absent(),
     this.isVerified = const Value.absent(),
     this.isHolidayCalendarConfigured = const Value.absent(),
+    this.followerCount = const Value.absent(),
     this.activePolicyId = const Value.absent(),
     this.activeCalendarId = const Value.absent(),
+    this.createdBy = const Value.absent(),
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
   })  : id = Value(id),
@@ -995,10 +1098,13 @@ class OrganizationRowsCompanion extends UpdateCompanion<OrganizationRow> {
     Expression<String>? id,
     Expression<String>? name,
     Expression<String>? type,
+    Expression<String>? branch,
     Expression<bool>? isVerified,
     Expression<bool>? isHolidayCalendarConfigured,
+    Expression<int>? followerCount,
     Expression<String>? activePolicyId,
     Expression<String>? activeCalendarId,
+    Expression<String>? createdBy,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
   }) {
@@ -1006,11 +1112,14 @@ class OrganizationRowsCompanion extends UpdateCompanion<OrganizationRow> {
       if (id != null) 'id': id,
       if (name != null) 'name': name,
       if (type != null) 'type': type,
+      if (branch != null) 'branch': branch,
       if (isVerified != null) 'is_verified': isVerified,
       if (isHolidayCalendarConfigured != null)
         'is_holiday_calendar_configured': isHolidayCalendarConfigured,
+      if (followerCount != null) 'follower_count': followerCount,
       if (activePolicyId != null) 'active_policy_id': activePolicyId,
       if (activeCalendarId != null) 'active_calendar_id': activeCalendarId,
+      if (createdBy != null) 'created_by': createdBy,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
     });
@@ -1020,21 +1129,27 @@ class OrganizationRowsCompanion extends UpdateCompanion<OrganizationRow> {
       {Value<String>? id,
       Value<String>? name,
       Value<String>? type,
+      Value<String?>? branch,
       Value<bool>? isVerified,
       Value<bool>? isHolidayCalendarConfigured,
+      Value<int>? followerCount,
       Value<String?>? activePolicyId,
       Value<String?>? activeCalendarId,
+      Value<String?>? createdBy,
       Value<DateTime>? updatedAt,
       Value<int>? rowid}) {
     return OrganizationRowsCompanion(
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
+      branch: branch ?? this.branch,
       isVerified: isVerified ?? this.isVerified,
       isHolidayCalendarConfigured:
           isHolidayCalendarConfigured ?? this.isHolidayCalendarConfigured,
+      followerCount: followerCount ?? this.followerCount,
       activePolicyId: activePolicyId ?? this.activePolicyId,
       activeCalendarId: activeCalendarId ?? this.activeCalendarId,
+      createdBy: createdBy ?? this.createdBy,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
     );
@@ -1052,6 +1167,9 @@ class OrganizationRowsCompanion extends UpdateCompanion<OrganizationRow> {
     if (type.present) {
       map['type'] = Variable<String>(type.value);
     }
+    if (branch.present) {
+      map['branch'] = Variable<String>(branch.value);
+    }
     if (isVerified.present) {
       map['is_verified'] = Variable<bool>(isVerified.value);
     }
@@ -1059,11 +1177,17 @@ class OrganizationRowsCompanion extends UpdateCompanion<OrganizationRow> {
       map['is_holiday_calendar_configured'] =
           Variable<bool>(isHolidayCalendarConfigured.value);
     }
+    if (followerCount.present) {
+      map['follower_count'] = Variable<int>(followerCount.value);
+    }
     if (activePolicyId.present) {
       map['active_policy_id'] = Variable<String>(activePolicyId.value);
     }
     if (activeCalendarId.present) {
       map['active_calendar_id'] = Variable<String>(activeCalendarId.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
     }
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
@@ -1080,10 +1204,13 @@ class OrganizationRowsCompanion extends UpdateCompanion<OrganizationRow> {
           ..write('id: $id, ')
           ..write('name: $name, ')
           ..write('type: $type, ')
+          ..write('branch: $branch, ')
           ..write('isVerified: $isVerified, ')
           ..write('isHolidayCalendarConfigured: $isHolidayCalendarConfigured, ')
+          ..write('followerCount: $followerCount, ')
           ..write('activePolicyId: $activePolicyId, ')
           ..write('activeCalendarId: $activeCalendarId, ')
+          ..write('createdBy: $createdBy, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -1538,9 +1665,90 @@ class $FollowRowsTable extends FollowRows
   late final GeneratedColumn<DateTime> followedAt = GeneratedColumn<DateTime>(
       'followed_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _personalBasisMeta =
+      const VerificationMeta('personalBasis');
   @override
-  List<GeneratedColumn> get $columns =>
-      [id, organizationId, scopeId, personalTargetPercent, status, followedAt];
+  late final GeneratedColumn<String> personalBasis = GeneratedColumn<String>(
+      'personal_basis', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _personalEvaluationPeriodMeta =
+      const VerificationMeta('personalEvaluationPeriod');
+  @override
+  late final GeneratedColumn<String> personalEvaluationPeriod =
+      GeneratedColumn<String>('personal_evaluation_period', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _personalFullUnitMeta =
+      const VerificationMeta('personalFullUnit');
+  @override
+  late final GeneratedColumn<double> personalFullUnit = GeneratedColumn<double>(
+      'personal_full_unit', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _personalHalfUnitMeta =
+      const VerificationMeta('personalHalfUnit');
+  @override
+  late final GeneratedColumn<double> personalHalfUnit = GeneratedColumn<double>(
+      'personal_half_unit', aliasedName, true,
+      type: DriftSqlType.double, requiredDuringInsert: false);
+  static const VerificationMeta _personalStartDateMeta =
+      const VerificationMeta('personalStartDate');
+  @override
+  late final GeneratedColumn<DateTime> personalStartDate =
+      GeneratedColumn<DateTime>('personal_start_date', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _personalEndDateMeta =
+      const VerificationMeta('personalEndDate');
+  @override
+  late final GeneratedColumn<DateTime> personalEndDate =
+      GeneratedColumn<DateTime>('personal_end_date', aliasedName, true,
+          type: DriftSqlType.dateTime, requiredDuringInsert: false);
+  static const VerificationMeta _personalWeeklyOffsMeta =
+      const VerificationMeta('personalWeeklyOffs');
+  @override
+  late final GeneratedColumn<String> personalWeeklyOffs =
+      GeneratedColumn<String>('personal_weekly_offs', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _personalOffSaturdaysMeta =
+      const VerificationMeta('personalOffSaturdays');
+  @override
+  late final GeneratedColumn<String> personalOffSaturdays =
+      GeneratedColumn<String>('personal_off_saturdays', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _personalHolidaysMeta =
+      const VerificationMeta('personalHolidays');
+  @override
+  late final GeneratedColumn<String> personalHolidays = GeneratedColumn<String>(
+      'personal_holidays', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _isPersonalCalendarConfiguredMeta =
+      const VerificationMeta('isPersonalCalendarConfigured');
+  @override
+  late final GeneratedColumn<bool> isPersonalCalendarConfigured =
+      GeneratedColumn<bool>(
+          'is_personal_calendar_configured', aliasedName, false,
+          type: DriftSqlType.bool,
+          requiredDuringInsert: false,
+          defaultConstraints: GeneratedColumn.constraintIsAlways(
+              'CHECK ("is_personal_calendar_configured" IN (0, 1))'),
+          defaultValue: const Constant(false));
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        organizationId,
+        scopeId,
+        personalTargetPercent,
+        status,
+        followedAt,
+        personalBasis,
+        personalEvaluationPeriod,
+        personalFullUnit,
+        personalHalfUnit,
+        personalStartDate,
+        personalEndDate,
+        personalWeeklyOffs,
+        personalOffSaturdays,
+        personalHolidays,
+        isPersonalCalendarConfigured
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -1590,6 +1798,68 @@ class $FollowRowsTable extends FollowRows
     } else if (isInserting) {
       context.missing(_followedAtMeta);
     }
+    if (data.containsKey('personal_basis')) {
+      context.handle(
+          _personalBasisMeta,
+          personalBasis.isAcceptableOrUnknown(
+              data['personal_basis']!, _personalBasisMeta));
+    }
+    if (data.containsKey('personal_evaluation_period')) {
+      context.handle(
+          _personalEvaluationPeriodMeta,
+          personalEvaluationPeriod.isAcceptableOrUnknown(
+              data['personal_evaluation_period']!,
+              _personalEvaluationPeriodMeta));
+    }
+    if (data.containsKey('personal_full_unit')) {
+      context.handle(
+          _personalFullUnitMeta,
+          personalFullUnit.isAcceptableOrUnknown(
+              data['personal_full_unit']!, _personalFullUnitMeta));
+    }
+    if (data.containsKey('personal_half_unit')) {
+      context.handle(
+          _personalHalfUnitMeta,
+          personalHalfUnit.isAcceptableOrUnknown(
+              data['personal_half_unit']!, _personalHalfUnitMeta));
+    }
+    if (data.containsKey('personal_start_date')) {
+      context.handle(
+          _personalStartDateMeta,
+          personalStartDate.isAcceptableOrUnknown(
+              data['personal_start_date']!, _personalStartDateMeta));
+    }
+    if (data.containsKey('personal_end_date')) {
+      context.handle(
+          _personalEndDateMeta,
+          personalEndDate.isAcceptableOrUnknown(
+              data['personal_end_date']!, _personalEndDateMeta));
+    }
+    if (data.containsKey('personal_weekly_offs')) {
+      context.handle(
+          _personalWeeklyOffsMeta,
+          personalWeeklyOffs.isAcceptableOrUnknown(
+              data['personal_weekly_offs']!, _personalWeeklyOffsMeta));
+    }
+    if (data.containsKey('personal_off_saturdays')) {
+      context.handle(
+          _personalOffSaturdaysMeta,
+          personalOffSaturdays.isAcceptableOrUnknown(
+              data['personal_off_saturdays']!, _personalOffSaturdaysMeta));
+    }
+    if (data.containsKey('personal_holidays')) {
+      context.handle(
+          _personalHolidaysMeta,
+          personalHolidays.isAcceptableOrUnknown(
+              data['personal_holidays']!, _personalHolidaysMeta));
+    }
+    if (data.containsKey('is_personal_calendar_configured')) {
+      context.handle(
+          _isPersonalCalendarConfiguredMeta,
+          isPersonalCalendarConfigured.isAcceptableOrUnknown(
+              data['is_personal_calendar_configured']!,
+              _isPersonalCalendarConfiguredMeta));
+    }
     return context;
   }
 
@@ -1612,6 +1882,29 @@ class $FollowRowsTable extends FollowRows
           .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
       followedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}followed_at'])!,
+      personalBasis: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}personal_basis']),
+      personalEvaluationPeriod: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}personal_evaluation_period']),
+      personalFullUnit: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}personal_full_unit']),
+      personalHalfUnit: attachedDatabase.typeMapping.read(
+          DriftSqlType.double, data['${effectivePrefix}personal_half_unit']),
+      personalStartDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}personal_start_date']),
+      personalEndDate: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}personal_end_date']),
+      personalWeeklyOffs: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}personal_weekly_offs']),
+      personalOffSaturdays: attachedDatabase.typeMapping.read(
+          DriftSqlType.string,
+          data['${effectivePrefix}personal_off_saturdays']),
+      personalHolidays: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}personal_holidays']),
+      isPersonalCalendarConfigured: attachedDatabase.typeMapping.read(
+          DriftSqlType.bool,
+          data['${effectivePrefix}is_personal_calendar_configured'])!,
     );
   }
 
@@ -1628,13 +1921,33 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
   final double? personalTargetPercent;
   final String status;
   final DateTime followedAt;
+  final String? personalBasis;
+  final String? personalEvaluationPeriod;
+  final double? personalFullUnit;
+  final double? personalHalfUnit;
+  final DateTime? personalStartDate;
+  final DateTime? personalEndDate;
+  final String? personalWeeklyOffs;
+  final String? personalOffSaturdays;
+  final String? personalHolidays;
+  final bool isPersonalCalendarConfigured;
   const FollowRow(
       {required this.id,
       required this.organizationId,
       required this.scopeId,
       this.personalTargetPercent,
       required this.status,
-      required this.followedAt});
+      required this.followedAt,
+      this.personalBasis,
+      this.personalEvaluationPeriod,
+      this.personalFullUnit,
+      this.personalHalfUnit,
+      this.personalStartDate,
+      this.personalEndDate,
+      this.personalWeeklyOffs,
+      this.personalOffSaturdays,
+      this.personalHolidays,
+      required this.isPersonalCalendarConfigured});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1646,6 +1959,36 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
     }
     map['status'] = Variable<String>(status);
     map['followed_at'] = Variable<DateTime>(followedAt);
+    if (!nullToAbsent || personalBasis != null) {
+      map['personal_basis'] = Variable<String>(personalBasis);
+    }
+    if (!nullToAbsent || personalEvaluationPeriod != null) {
+      map['personal_evaluation_period'] =
+          Variable<String>(personalEvaluationPeriod);
+    }
+    if (!nullToAbsent || personalFullUnit != null) {
+      map['personal_full_unit'] = Variable<double>(personalFullUnit);
+    }
+    if (!nullToAbsent || personalHalfUnit != null) {
+      map['personal_half_unit'] = Variable<double>(personalHalfUnit);
+    }
+    if (!nullToAbsent || personalStartDate != null) {
+      map['personal_start_date'] = Variable<DateTime>(personalStartDate);
+    }
+    if (!nullToAbsent || personalEndDate != null) {
+      map['personal_end_date'] = Variable<DateTime>(personalEndDate);
+    }
+    if (!nullToAbsent || personalWeeklyOffs != null) {
+      map['personal_weekly_offs'] = Variable<String>(personalWeeklyOffs);
+    }
+    if (!nullToAbsent || personalOffSaturdays != null) {
+      map['personal_off_saturdays'] = Variable<String>(personalOffSaturdays);
+    }
+    if (!nullToAbsent || personalHolidays != null) {
+      map['personal_holidays'] = Variable<String>(personalHolidays);
+    }
+    map['is_personal_calendar_configured'] =
+        Variable<bool>(isPersonalCalendarConfigured);
     return map;
   }
 
@@ -1659,6 +2002,34 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
           : Value(personalTargetPercent),
       status: Value(status),
       followedAt: Value(followedAt),
+      personalBasis: personalBasis == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalBasis),
+      personalEvaluationPeriod: personalEvaluationPeriod == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalEvaluationPeriod),
+      personalFullUnit: personalFullUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalFullUnit),
+      personalHalfUnit: personalHalfUnit == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalHalfUnit),
+      personalStartDate: personalStartDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalStartDate),
+      personalEndDate: personalEndDate == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalEndDate),
+      personalWeeklyOffs: personalWeeklyOffs == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalWeeklyOffs),
+      personalOffSaturdays: personalOffSaturdays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalOffSaturdays),
+      personalHolidays: personalHolidays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(personalHolidays),
+      isPersonalCalendarConfigured: Value(isPersonalCalendarConfigured),
     );
   }
 
@@ -1673,6 +2044,21 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
           serializer.fromJson<double?>(json['personalTargetPercent']),
       status: serializer.fromJson<String>(json['status']),
       followedAt: serializer.fromJson<DateTime>(json['followedAt']),
+      personalBasis: serializer.fromJson<String?>(json['personalBasis']),
+      personalEvaluationPeriod:
+          serializer.fromJson<String?>(json['personalEvaluationPeriod']),
+      personalFullUnit: serializer.fromJson<double?>(json['personalFullUnit']),
+      personalHalfUnit: serializer.fromJson<double?>(json['personalHalfUnit']),
+      personalStartDate:
+          serializer.fromJson<DateTime?>(json['personalStartDate']),
+      personalEndDate: serializer.fromJson<DateTime?>(json['personalEndDate']),
+      personalWeeklyOffs:
+          serializer.fromJson<String?>(json['personalWeeklyOffs']),
+      personalOffSaturdays:
+          serializer.fromJson<String?>(json['personalOffSaturdays']),
+      personalHolidays: serializer.fromJson<String?>(json['personalHolidays']),
+      isPersonalCalendarConfigured:
+          serializer.fromJson<bool>(json['isPersonalCalendarConfigured']),
     );
   }
   @override
@@ -1686,6 +2072,18 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
           serializer.toJson<double?>(personalTargetPercent),
       'status': serializer.toJson<String>(status),
       'followedAt': serializer.toJson<DateTime>(followedAt),
+      'personalBasis': serializer.toJson<String?>(personalBasis),
+      'personalEvaluationPeriod':
+          serializer.toJson<String?>(personalEvaluationPeriod),
+      'personalFullUnit': serializer.toJson<double?>(personalFullUnit),
+      'personalHalfUnit': serializer.toJson<double?>(personalHalfUnit),
+      'personalStartDate': serializer.toJson<DateTime?>(personalStartDate),
+      'personalEndDate': serializer.toJson<DateTime?>(personalEndDate),
+      'personalWeeklyOffs': serializer.toJson<String?>(personalWeeklyOffs),
+      'personalOffSaturdays': serializer.toJson<String?>(personalOffSaturdays),
+      'personalHolidays': serializer.toJson<String?>(personalHolidays),
+      'isPersonalCalendarConfigured':
+          serializer.toJson<bool>(isPersonalCalendarConfigured),
     };
   }
 
@@ -1695,7 +2093,17 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
           String? scopeId,
           Value<double?> personalTargetPercent = const Value.absent(),
           String? status,
-          DateTime? followedAt}) =>
+          DateTime? followedAt,
+          Value<String?> personalBasis = const Value.absent(),
+          Value<String?> personalEvaluationPeriod = const Value.absent(),
+          Value<double?> personalFullUnit = const Value.absent(),
+          Value<double?> personalHalfUnit = const Value.absent(),
+          Value<DateTime?> personalStartDate = const Value.absent(),
+          Value<DateTime?> personalEndDate = const Value.absent(),
+          Value<String?> personalWeeklyOffs = const Value.absent(),
+          Value<String?> personalOffSaturdays = const Value.absent(),
+          Value<String?> personalHolidays = const Value.absent(),
+          bool? isPersonalCalendarConfigured}) =>
       FollowRow(
         id: id ?? this.id,
         organizationId: organizationId ?? this.organizationId,
@@ -1705,6 +2113,34 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
             : this.personalTargetPercent,
         status: status ?? this.status,
         followedAt: followedAt ?? this.followedAt,
+        personalBasis:
+            personalBasis.present ? personalBasis.value : this.personalBasis,
+        personalEvaluationPeriod: personalEvaluationPeriod.present
+            ? personalEvaluationPeriod.value
+            : this.personalEvaluationPeriod,
+        personalFullUnit: personalFullUnit.present
+            ? personalFullUnit.value
+            : this.personalFullUnit,
+        personalHalfUnit: personalHalfUnit.present
+            ? personalHalfUnit.value
+            : this.personalHalfUnit,
+        personalStartDate: personalStartDate.present
+            ? personalStartDate.value
+            : this.personalStartDate,
+        personalEndDate: personalEndDate.present
+            ? personalEndDate.value
+            : this.personalEndDate,
+        personalWeeklyOffs: personalWeeklyOffs.present
+            ? personalWeeklyOffs.value
+            : this.personalWeeklyOffs,
+        personalOffSaturdays: personalOffSaturdays.present
+            ? personalOffSaturdays.value
+            : this.personalOffSaturdays,
+        personalHolidays: personalHolidays.present
+            ? personalHolidays.value
+            : this.personalHolidays,
+        isPersonalCalendarConfigured:
+            isPersonalCalendarConfigured ?? this.isPersonalCalendarConfigured,
       );
   FollowRow copyWithCompanion(FollowRowsCompanion data) {
     return FollowRow(
@@ -1719,6 +2155,36 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
       status: data.status.present ? data.status.value : this.status,
       followedAt:
           data.followedAt.present ? data.followedAt.value : this.followedAt,
+      personalBasis: data.personalBasis.present
+          ? data.personalBasis.value
+          : this.personalBasis,
+      personalEvaluationPeriod: data.personalEvaluationPeriod.present
+          ? data.personalEvaluationPeriod.value
+          : this.personalEvaluationPeriod,
+      personalFullUnit: data.personalFullUnit.present
+          ? data.personalFullUnit.value
+          : this.personalFullUnit,
+      personalHalfUnit: data.personalHalfUnit.present
+          ? data.personalHalfUnit.value
+          : this.personalHalfUnit,
+      personalStartDate: data.personalStartDate.present
+          ? data.personalStartDate.value
+          : this.personalStartDate,
+      personalEndDate: data.personalEndDate.present
+          ? data.personalEndDate.value
+          : this.personalEndDate,
+      personalWeeklyOffs: data.personalWeeklyOffs.present
+          ? data.personalWeeklyOffs.value
+          : this.personalWeeklyOffs,
+      personalOffSaturdays: data.personalOffSaturdays.present
+          ? data.personalOffSaturdays.value
+          : this.personalOffSaturdays,
+      personalHolidays: data.personalHolidays.present
+          ? data.personalHolidays.value
+          : this.personalHolidays,
+      isPersonalCalendarConfigured: data.isPersonalCalendarConfigured.present
+          ? data.isPersonalCalendarConfigured.value
+          : this.isPersonalCalendarConfigured,
     );
   }
 
@@ -1730,14 +2196,39 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
           ..write('scopeId: $scopeId, ')
           ..write('personalTargetPercent: $personalTargetPercent, ')
           ..write('status: $status, ')
-          ..write('followedAt: $followedAt')
+          ..write('followedAt: $followedAt, ')
+          ..write('personalBasis: $personalBasis, ')
+          ..write('personalEvaluationPeriod: $personalEvaluationPeriod, ')
+          ..write('personalFullUnit: $personalFullUnit, ')
+          ..write('personalHalfUnit: $personalHalfUnit, ')
+          ..write('personalStartDate: $personalStartDate, ')
+          ..write('personalEndDate: $personalEndDate, ')
+          ..write('personalWeeklyOffs: $personalWeeklyOffs, ')
+          ..write('personalOffSaturdays: $personalOffSaturdays, ')
+          ..write('personalHolidays: $personalHolidays, ')
+          ..write('isPersonalCalendarConfigured: $isPersonalCalendarConfigured')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(
-      id, organizationId, scopeId, personalTargetPercent, status, followedAt);
+      id,
+      organizationId,
+      scopeId,
+      personalTargetPercent,
+      status,
+      followedAt,
+      personalBasis,
+      personalEvaluationPeriod,
+      personalFullUnit,
+      personalHalfUnit,
+      personalStartDate,
+      personalEndDate,
+      personalWeeklyOffs,
+      personalOffSaturdays,
+      personalHolidays,
+      isPersonalCalendarConfigured);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1747,7 +2238,18 @@ class FollowRow extends DataClass implements Insertable<FollowRow> {
           other.scopeId == this.scopeId &&
           other.personalTargetPercent == this.personalTargetPercent &&
           other.status == this.status &&
-          other.followedAt == this.followedAt);
+          other.followedAt == this.followedAt &&
+          other.personalBasis == this.personalBasis &&
+          other.personalEvaluationPeriod == this.personalEvaluationPeriod &&
+          other.personalFullUnit == this.personalFullUnit &&
+          other.personalHalfUnit == this.personalHalfUnit &&
+          other.personalStartDate == this.personalStartDate &&
+          other.personalEndDate == this.personalEndDate &&
+          other.personalWeeklyOffs == this.personalWeeklyOffs &&
+          other.personalOffSaturdays == this.personalOffSaturdays &&
+          other.personalHolidays == this.personalHolidays &&
+          other.isPersonalCalendarConfigured ==
+              this.isPersonalCalendarConfigured);
 }
 
 class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
@@ -1757,6 +2259,16 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
   final Value<double?> personalTargetPercent;
   final Value<String> status;
   final Value<DateTime> followedAt;
+  final Value<String?> personalBasis;
+  final Value<String?> personalEvaluationPeriod;
+  final Value<double?> personalFullUnit;
+  final Value<double?> personalHalfUnit;
+  final Value<DateTime?> personalStartDate;
+  final Value<DateTime?> personalEndDate;
+  final Value<String?> personalWeeklyOffs;
+  final Value<String?> personalOffSaturdays;
+  final Value<String?> personalHolidays;
+  final Value<bool> isPersonalCalendarConfigured;
   final Value<int> rowid;
   const FollowRowsCompanion({
     this.id = const Value.absent(),
@@ -1765,6 +2277,16 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
     this.personalTargetPercent = const Value.absent(),
     this.status = const Value.absent(),
     this.followedAt = const Value.absent(),
+    this.personalBasis = const Value.absent(),
+    this.personalEvaluationPeriod = const Value.absent(),
+    this.personalFullUnit = const Value.absent(),
+    this.personalHalfUnit = const Value.absent(),
+    this.personalStartDate = const Value.absent(),
+    this.personalEndDate = const Value.absent(),
+    this.personalWeeklyOffs = const Value.absent(),
+    this.personalOffSaturdays = const Value.absent(),
+    this.personalHolidays = const Value.absent(),
+    this.isPersonalCalendarConfigured = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   FollowRowsCompanion.insert({
@@ -1774,6 +2296,16 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
     this.personalTargetPercent = const Value.absent(),
     required String status,
     required DateTime followedAt,
+    this.personalBasis = const Value.absent(),
+    this.personalEvaluationPeriod = const Value.absent(),
+    this.personalFullUnit = const Value.absent(),
+    this.personalHalfUnit = const Value.absent(),
+    this.personalStartDate = const Value.absent(),
+    this.personalEndDate = const Value.absent(),
+    this.personalWeeklyOffs = const Value.absent(),
+    this.personalOffSaturdays = const Value.absent(),
+    this.personalHolidays = const Value.absent(),
+    this.isPersonalCalendarConfigured = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         organizationId = Value(organizationId),
@@ -1787,6 +2319,16 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
     Expression<double>? personalTargetPercent,
     Expression<String>? status,
     Expression<DateTime>? followedAt,
+    Expression<String>? personalBasis,
+    Expression<String>? personalEvaluationPeriod,
+    Expression<double>? personalFullUnit,
+    Expression<double>? personalHalfUnit,
+    Expression<DateTime>? personalStartDate,
+    Expression<DateTime>? personalEndDate,
+    Expression<String>? personalWeeklyOffs,
+    Expression<String>? personalOffSaturdays,
+    Expression<String>? personalHolidays,
+    Expression<bool>? isPersonalCalendarConfigured,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1797,6 +2339,20 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
         'personal_target_percent': personalTargetPercent,
       if (status != null) 'status': status,
       if (followedAt != null) 'followed_at': followedAt,
+      if (personalBasis != null) 'personal_basis': personalBasis,
+      if (personalEvaluationPeriod != null)
+        'personal_evaluation_period': personalEvaluationPeriod,
+      if (personalFullUnit != null) 'personal_full_unit': personalFullUnit,
+      if (personalHalfUnit != null) 'personal_half_unit': personalHalfUnit,
+      if (personalStartDate != null) 'personal_start_date': personalStartDate,
+      if (personalEndDate != null) 'personal_end_date': personalEndDate,
+      if (personalWeeklyOffs != null)
+        'personal_weekly_offs': personalWeeklyOffs,
+      if (personalOffSaturdays != null)
+        'personal_off_saturdays': personalOffSaturdays,
+      if (personalHolidays != null) 'personal_holidays': personalHolidays,
+      if (isPersonalCalendarConfigured != null)
+        'is_personal_calendar_configured': isPersonalCalendarConfigured,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1808,6 +2364,16 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
       Value<double?>? personalTargetPercent,
       Value<String>? status,
       Value<DateTime>? followedAt,
+      Value<String?>? personalBasis,
+      Value<String?>? personalEvaluationPeriod,
+      Value<double?>? personalFullUnit,
+      Value<double?>? personalHalfUnit,
+      Value<DateTime?>? personalStartDate,
+      Value<DateTime?>? personalEndDate,
+      Value<String?>? personalWeeklyOffs,
+      Value<String?>? personalOffSaturdays,
+      Value<String?>? personalHolidays,
+      Value<bool>? isPersonalCalendarConfigured,
       Value<int>? rowid}) {
     return FollowRowsCompanion(
       id: id ?? this.id,
@@ -1817,6 +2383,18 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
           personalTargetPercent ?? this.personalTargetPercent,
       status: status ?? this.status,
       followedAt: followedAt ?? this.followedAt,
+      personalBasis: personalBasis ?? this.personalBasis,
+      personalEvaluationPeriod:
+          personalEvaluationPeriod ?? this.personalEvaluationPeriod,
+      personalFullUnit: personalFullUnit ?? this.personalFullUnit,
+      personalHalfUnit: personalHalfUnit ?? this.personalHalfUnit,
+      personalStartDate: personalStartDate ?? this.personalStartDate,
+      personalEndDate: personalEndDate ?? this.personalEndDate,
+      personalWeeklyOffs: personalWeeklyOffs ?? this.personalWeeklyOffs,
+      personalOffSaturdays: personalOffSaturdays ?? this.personalOffSaturdays,
+      personalHolidays: personalHolidays ?? this.personalHolidays,
+      isPersonalCalendarConfigured:
+          isPersonalCalendarConfigured ?? this.isPersonalCalendarConfigured,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1843,6 +2421,39 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
     if (followedAt.present) {
       map['followed_at'] = Variable<DateTime>(followedAt.value);
     }
+    if (personalBasis.present) {
+      map['personal_basis'] = Variable<String>(personalBasis.value);
+    }
+    if (personalEvaluationPeriod.present) {
+      map['personal_evaluation_period'] =
+          Variable<String>(personalEvaluationPeriod.value);
+    }
+    if (personalFullUnit.present) {
+      map['personal_full_unit'] = Variable<double>(personalFullUnit.value);
+    }
+    if (personalHalfUnit.present) {
+      map['personal_half_unit'] = Variable<double>(personalHalfUnit.value);
+    }
+    if (personalStartDate.present) {
+      map['personal_start_date'] = Variable<DateTime>(personalStartDate.value);
+    }
+    if (personalEndDate.present) {
+      map['personal_end_date'] = Variable<DateTime>(personalEndDate.value);
+    }
+    if (personalWeeklyOffs.present) {
+      map['personal_weekly_offs'] = Variable<String>(personalWeeklyOffs.value);
+    }
+    if (personalOffSaturdays.present) {
+      map['personal_off_saturdays'] =
+          Variable<String>(personalOffSaturdays.value);
+    }
+    if (personalHolidays.present) {
+      map['personal_holidays'] = Variable<String>(personalHolidays.value);
+    }
+    if (isPersonalCalendarConfigured.present) {
+      map['is_personal_calendar_configured'] =
+          Variable<bool>(isPersonalCalendarConfigured.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1858,6 +2469,17 @@ class FollowRowsCompanion extends UpdateCompanion<FollowRow> {
           ..write('personalTargetPercent: $personalTargetPercent, ')
           ..write('status: $status, ')
           ..write('followedAt: $followedAt, ')
+          ..write('personalBasis: $personalBasis, ')
+          ..write('personalEvaluationPeriod: $personalEvaluationPeriod, ')
+          ..write('personalFullUnit: $personalFullUnit, ')
+          ..write('personalHalfUnit: $personalHalfUnit, ')
+          ..write('personalStartDate: $personalStartDate, ')
+          ..write('personalEndDate: $personalEndDate, ')
+          ..write('personalWeeklyOffs: $personalWeeklyOffs, ')
+          ..write('personalOffSaturdays: $personalOffSaturdays, ')
+          ..write('personalHolidays: $personalHolidays, ')
+          ..write(
+              'isPersonalCalendarConfigured: $isPersonalCalendarConfigured, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2683,6 +3305,14 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
   late final GeneratedColumn<double> halfUnit = GeneratedColumn<double>(
       'half_unit', aliasedName, false,
       type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _weeklyOffsMeta =
+      const VerificationMeta('weeklyOffs');
+  @override
+  late final GeneratedColumn<String> weeklyOffs = GeneratedColumn<String>(
+      'weekly_offs', aliasedName, false,
+      type: DriftSqlType.string,
+      requiredDuringInsert: false,
+      defaultValue: const Constant('[]'));
   static const VerificationMeta _startDateMeta =
       const VerificationMeta('startDate');
   @override
@@ -2714,6 +3344,7 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
         calculationBasis,
         fullUnit,
         halfUnit,
+        weeklyOffs,
         startDate,
         endDate,
         updatedAt
@@ -2803,6 +3434,12 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
     } else if (isInserting) {
       context.missing(_halfUnitMeta);
     }
+    if (data.containsKey('weekly_offs')) {
+      context.handle(
+          _weeklyOffsMeta,
+          weeklyOffs.isAcceptableOrUnknown(
+              data['weekly_offs']!, _weeklyOffsMeta));
+    }
     if (data.containsKey('start_date')) {
       context.handle(_startDateMeta,
           startDate.isAcceptableOrUnknown(data['start_date']!, _startDateMeta));
@@ -2848,6 +3485,8 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
           .read(DriftSqlType.double, data['${effectivePrefix}full_unit'])!,
       halfUnit: attachedDatabase.typeMapping
           .read(DriftSqlType.double, data['${effectivePrefix}half_unit'])!,
+      weeklyOffs: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}weekly_offs'])!,
       startDate: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}start_date']),
       endDate: attachedDatabase.typeMapping
@@ -2876,6 +3515,7 @@ class OrganizationPolicyRow extends DataClass
   final String calculationBasis;
   final double fullUnit;
   final double halfUnit;
+  final String weeklyOffs;
   final DateTime? startDate;
   final DateTime? endDate;
   final DateTime updatedAt;
@@ -2891,6 +3531,7 @@ class OrganizationPolicyRow extends DataClass
       required this.calculationBasis,
       required this.fullUnit,
       required this.halfUnit,
+      required this.weeklyOffs,
       this.startDate,
       this.endDate,
       required this.updatedAt});
@@ -2910,6 +3551,7 @@ class OrganizationPolicyRow extends DataClass
     map['calculation_basis'] = Variable<String>(calculationBasis);
     map['full_unit'] = Variable<double>(fullUnit);
     map['half_unit'] = Variable<double>(halfUnit);
+    map['weekly_offs'] = Variable<String>(weeklyOffs);
     if (!nullToAbsent || startDate != null) {
       map['start_date'] = Variable<DateTime>(startDate);
     }
@@ -2935,6 +3577,7 @@ class OrganizationPolicyRow extends DataClass
       calculationBasis: Value(calculationBasis),
       fullUnit: Value(fullUnit),
       halfUnit: Value(halfUnit),
+      weeklyOffs: Value(weeklyOffs),
       startDate: startDate == null && nullToAbsent
           ? const Value.absent()
           : Value(startDate),
@@ -2960,6 +3603,7 @@ class OrganizationPolicyRow extends DataClass
       calculationBasis: serializer.fromJson<String>(json['calculationBasis']),
       fullUnit: serializer.fromJson<double>(json['fullUnit']),
       halfUnit: serializer.fromJson<double>(json['halfUnit']),
+      weeklyOffs: serializer.fromJson<String>(json['weeklyOffs']),
       startDate: serializer.fromJson<DateTime?>(json['startDate']),
       endDate: serializer.fromJson<DateTime?>(json['endDate']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -2980,6 +3624,7 @@ class OrganizationPolicyRow extends DataClass
       'calculationBasis': serializer.toJson<String>(calculationBasis),
       'fullUnit': serializer.toJson<double>(fullUnit),
       'halfUnit': serializer.toJson<double>(halfUnit),
+      'weeklyOffs': serializer.toJson<String>(weeklyOffs),
       'startDate': serializer.toJson<DateTime?>(startDate),
       'endDate': serializer.toJson<DateTime?>(endDate),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -2998,6 +3643,7 @@ class OrganizationPolicyRow extends DataClass
           String? calculationBasis,
           double? fullUnit,
           double? halfUnit,
+          String? weeklyOffs,
           Value<DateTime?> startDate = const Value.absent(),
           Value<DateTime?> endDate = const Value.absent(),
           DateTime? updatedAt}) =>
@@ -3014,6 +3660,7 @@ class OrganizationPolicyRow extends DataClass
         calculationBasis: calculationBasis ?? this.calculationBasis,
         fullUnit: fullUnit ?? this.fullUnit,
         halfUnit: halfUnit ?? this.halfUnit,
+        weeklyOffs: weeklyOffs ?? this.weeklyOffs,
         startDate: startDate.present ? startDate.value : this.startDate,
         endDate: endDate.present ? endDate.value : this.endDate,
         updatedAt: updatedAt ?? this.updatedAt,
@@ -3042,6 +3689,8 @@ class OrganizationPolicyRow extends DataClass
           : this.calculationBasis,
       fullUnit: data.fullUnit.present ? data.fullUnit.value : this.fullUnit,
       halfUnit: data.halfUnit.present ? data.halfUnit.value : this.halfUnit,
+      weeklyOffs:
+          data.weeklyOffs.present ? data.weeklyOffs.value : this.weeklyOffs,
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
@@ -3062,6 +3711,7 @@ class OrganizationPolicyRow extends DataClass
           ..write('calculationBasis: $calculationBasis, ')
           ..write('fullUnit: $fullUnit, ')
           ..write('halfUnit: $halfUnit, ')
+          ..write('weeklyOffs: $weeklyOffs, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('updatedAt: $updatedAt')
@@ -3082,6 +3732,7 @@ class OrganizationPolicyRow extends DataClass
       calculationBasis,
       fullUnit,
       halfUnit,
+      weeklyOffs,
       startDate,
       endDate,
       updatedAt);
@@ -3100,6 +3751,7 @@ class OrganizationPolicyRow extends DataClass
           other.calculationBasis == this.calculationBasis &&
           other.fullUnit == this.fullUnit &&
           other.halfUnit == this.halfUnit &&
+          other.weeklyOffs == this.weeklyOffs &&
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
           other.updatedAt == this.updatedAt);
@@ -3118,6 +3770,7 @@ class OrganizationPolicyRowsCompanion
   final Value<String> calculationBasis;
   final Value<double> fullUnit;
   final Value<double> halfUnit;
+  final Value<String> weeklyOffs;
   final Value<DateTime?> startDate;
   final Value<DateTime?> endDate;
   final Value<DateTime> updatedAt;
@@ -3134,6 +3787,7 @@ class OrganizationPolicyRowsCompanion
     this.calculationBasis = const Value.absent(),
     this.fullUnit = const Value.absent(),
     this.halfUnit = const Value.absent(),
+    this.weeklyOffs = const Value.absent(),
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -3151,6 +3805,7 @@ class OrganizationPolicyRowsCompanion
     required String calculationBasis,
     required double fullUnit,
     required double halfUnit,
+    this.weeklyOffs = const Value.absent(),
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     required DateTime updatedAt,
@@ -3178,6 +3833,7 @@ class OrganizationPolicyRowsCompanion
     Expression<String>? calculationBasis,
     Expression<double>? fullUnit,
     Expression<double>? halfUnit,
+    Expression<String>? weeklyOffs,
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
     Expression<DateTime>? updatedAt,
@@ -3195,6 +3851,7 @@ class OrganizationPolicyRowsCompanion
       if (calculationBasis != null) 'calculation_basis': calculationBasis,
       if (fullUnit != null) 'full_unit': fullUnit,
       if (halfUnit != null) 'half_unit': halfUnit,
+      if (weeklyOffs != null) 'weekly_offs': weeklyOffs,
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -3214,6 +3871,7 @@ class OrganizationPolicyRowsCompanion
       Value<String>? calculationBasis,
       Value<double>? fullUnit,
       Value<double>? halfUnit,
+      Value<String>? weeklyOffs,
       Value<DateTime?>? startDate,
       Value<DateTime?>? endDate,
       Value<DateTime>? updatedAt,
@@ -3230,6 +3888,7 @@ class OrganizationPolicyRowsCompanion
       calculationBasis: calculationBasis ?? this.calculationBasis,
       fullUnit: fullUnit ?? this.fullUnit,
       halfUnit: halfUnit ?? this.halfUnit,
+      weeklyOffs: weeklyOffs ?? this.weeklyOffs,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -3273,6 +3932,9 @@ class OrganizationPolicyRowsCompanion
     if (halfUnit.present) {
       map['half_unit'] = Variable<double>(halfUnit.value);
     }
+    if (weeklyOffs.present) {
+      map['weekly_offs'] = Variable<String>(weeklyOffs.value);
+    }
     if (startDate.present) {
       map['start_date'] = Variable<DateTime>(startDate.value);
     }
@@ -3302,8 +3964,544 @@ class OrganizationPolicyRowsCompanion
           ..write('calculationBasis: $calculationBasis, ')
           ..write('fullUnit: $fullUnit, ')
           ..write('halfUnit: $halfUnit, ')
+          ..write('weeklyOffs: $weeklyOffs, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CalendarRowsTable extends CalendarRows
+    with TableInfo<$CalendarRowsTable, CalendarRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CalendarRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _organizationIdMeta =
+      const VerificationMeta('organizationId');
+  @override
+  late final GeneratedColumn<String> organizationId = GeneratedColumn<String>(
+      'organization_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _scopeIdMeta =
+      const VerificationMeta('scopeId');
+  @override
+  late final GeneratedColumn<String> scopeId = GeneratedColumn<String>(
+      'scope_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _versionMeta =
+      const VerificationMeta('version');
+  @override
+  late final GeneratedColumn<int> version = GeneratedColumn<int>(
+      'version', aliasedName, false,
+      type: DriftSqlType.int, requiredDuringInsert: true);
+  static const VerificationMeta _effectiveFromMeta =
+      const VerificationMeta('effectiveFrom');
+  @override
+  late final GeneratedColumn<DateTime> effectiveFrom =
+      GeneratedColumn<DateTime>('effective_from', aliasedName, false,
+          type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _weeklyOffsMeta =
+      const VerificationMeta('weeklyOffs');
+  @override
+  late final GeneratedColumn<String> weeklyOffs = GeneratedColumn<String>(
+      'weekly_offs', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _offSaturdaysMeta =
+      const VerificationMeta('offSaturdays');
+  @override
+  late final GeneratedColumn<String> offSaturdays = GeneratedColumn<String>(
+      'off_saturdays', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _holidaysMeta =
+      const VerificationMeta('holidays');
+  @override
+  late final GeneratedColumn<String> holidays = GeneratedColumn<String>(
+      'holidays', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _isConfiguredMeta =
+      const VerificationMeta('isConfigured');
+  @override
+  late final GeneratedColumn<bool> isConfigured = GeneratedColumn<bool>(
+      'is_configured', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("is_configured" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        organizationId,
+        scopeId,
+        version,
+        effectiveFrom,
+        weeklyOffs,
+        offSaturdays,
+        holidays,
+        isConfigured,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'calendar_rows';
+  @override
+  VerificationContext validateIntegrity(Insertable<CalendarRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('organization_id')) {
+      context.handle(
+          _organizationIdMeta,
+          organizationId.isAcceptableOrUnknown(
+              data['organization_id']!, _organizationIdMeta));
+    } else if (isInserting) {
+      context.missing(_organizationIdMeta);
+    }
+    if (data.containsKey('scope_id')) {
+      context.handle(_scopeIdMeta,
+          scopeId.isAcceptableOrUnknown(data['scope_id']!, _scopeIdMeta));
+    } else if (isInserting) {
+      context.missing(_scopeIdMeta);
+    }
+    if (data.containsKey('version')) {
+      context.handle(_versionMeta,
+          version.isAcceptableOrUnknown(data['version']!, _versionMeta));
+    } else if (isInserting) {
+      context.missing(_versionMeta);
+    }
+    if (data.containsKey('effective_from')) {
+      context.handle(
+          _effectiveFromMeta,
+          effectiveFrom.isAcceptableOrUnknown(
+              data['effective_from']!, _effectiveFromMeta));
+    } else if (isInserting) {
+      context.missing(_effectiveFromMeta);
+    }
+    if (data.containsKey('weekly_offs')) {
+      context.handle(
+          _weeklyOffsMeta,
+          weeklyOffs.isAcceptableOrUnknown(
+              data['weekly_offs']!, _weeklyOffsMeta));
+    } else if (isInserting) {
+      context.missing(_weeklyOffsMeta);
+    }
+    if (data.containsKey('off_saturdays')) {
+      context.handle(
+          _offSaturdaysMeta,
+          offSaturdays.isAcceptableOrUnknown(
+              data['off_saturdays']!, _offSaturdaysMeta));
+    } else if (isInserting) {
+      context.missing(_offSaturdaysMeta);
+    }
+    if (data.containsKey('holidays')) {
+      context.handle(_holidaysMeta,
+          holidays.isAcceptableOrUnknown(data['holidays']!, _holidaysMeta));
+    }
+    if (data.containsKey('is_configured')) {
+      context.handle(
+          _isConfiguredMeta,
+          isConfigured.isAcceptableOrUnknown(
+              data['is_configured']!, _isConfiguredMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CalendarRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CalendarRow(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      organizationId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}organization_id'])!,
+      scopeId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}scope_id'])!,
+      version: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}version'])!,
+      effectiveFrom: attachedDatabase.typeMapping.read(
+          DriftSqlType.dateTime, data['${effectivePrefix}effective_from'])!,
+      weeklyOffs: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}weekly_offs'])!,
+      offSaturdays: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}off_saturdays'])!,
+      holidays: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}holidays']),
+      isConfigured: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_configured'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $CalendarRowsTable createAlias(String alias) {
+    return $CalendarRowsTable(attachedDatabase, alias);
+  }
+}
+
+class CalendarRow extends DataClass implements Insertable<CalendarRow> {
+  final String id;
+  final String organizationId;
+  final String scopeId;
+  final int version;
+  final DateTime effectiveFrom;
+  final String weeklyOffs;
+  final String offSaturdays;
+  final String? holidays;
+  final bool isConfigured;
+  final DateTime updatedAt;
+  const CalendarRow(
+      {required this.id,
+      required this.organizationId,
+      required this.scopeId,
+      required this.version,
+      required this.effectiveFrom,
+      required this.weeklyOffs,
+      required this.offSaturdays,
+      this.holidays,
+      required this.isConfigured,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['organization_id'] = Variable<String>(organizationId);
+    map['scope_id'] = Variable<String>(scopeId);
+    map['version'] = Variable<int>(version);
+    map['effective_from'] = Variable<DateTime>(effectiveFrom);
+    map['weekly_offs'] = Variable<String>(weeklyOffs);
+    map['off_saturdays'] = Variable<String>(offSaturdays);
+    if (!nullToAbsent || holidays != null) {
+      map['holidays'] = Variable<String>(holidays);
+    }
+    map['is_configured'] = Variable<bool>(isConfigured);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  CalendarRowsCompanion toCompanion(bool nullToAbsent) {
+    return CalendarRowsCompanion(
+      id: Value(id),
+      organizationId: Value(organizationId),
+      scopeId: Value(scopeId),
+      version: Value(version),
+      effectiveFrom: Value(effectiveFrom),
+      weeklyOffs: Value(weeklyOffs),
+      offSaturdays: Value(offSaturdays),
+      holidays: holidays == null && nullToAbsent
+          ? const Value.absent()
+          : Value(holidays),
+      isConfigured: Value(isConfigured),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory CalendarRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CalendarRow(
+      id: serializer.fromJson<String>(json['id']),
+      organizationId: serializer.fromJson<String>(json['organizationId']),
+      scopeId: serializer.fromJson<String>(json['scopeId']),
+      version: serializer.fromJson<int>(json['version']),
+      effectiveFrom: serializer.fromJson<DateTime>(json['effectiveFrom']),
+      weeklyOffs: serializer.fromJson<String>(json['weeklyOffs']),
+      offSaturdays: serializer.fromJson<String>(json['offSaturdays']),
+      holidays: serializer.fromJson<String?>(json['holidays']),
+      isConfigured: serializer.fromJson<bool>(json['isConfigured']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'organizationId': serializer.toJson<String>(organizationId),
+      'scopeId': serializer.toJson<String>(scopeId),
+      'version': serializer.toJson<int>(version),
+      'effectiveFrom': serializer.toJson<DateTime>(effectiveFrom),
+      'weeklyOffs': serializer.toJson<String>(weeklyOffs),
+      'offSaturdays': serializer.toJson<String>(offSaturdays),
+      'holidays': serializer.toJson<String?>(holidays),
+      'isConfigured': serializer.toJson<bool>(isConfigured),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  CalendarRow copyWith(
+          {String? id,
+          String? organizationId,
+          String? scopeId,
+          int? version,
+          DateTime? effectiveFrom,
+          String? weeklyOffs,
+          String? offSaturdays,
+          Value<String?> holidays = const Value.absent(),
+          bool? isConfigured,
+          DateTime? updatedAt}) =>
+      CalendarRow(
+        id: id ?? this.id,
+        organizationId: organizationId ?? this.organizationId,
+        scopeId: scopeId ?? this.scopeId,
+        version: version ?? this.version,
+        effectiveFrom: effectiveFrom ?? this.effectiveFrom,
+        weeklyOffs: weeklyOffs ?? this.weeklyOffs,
+        offSaturdays: offSaturdays ?? this.offSaturdays,
+        holidays: holidays.present ? holidays.value : this.holidays,
+        isConfigured: isConfigured ?? this.isConfigured,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  CalendarRow copyWithCompanion(CalendarRowsCompanion data) {
+    return CalendarRow(
+      id: data.id.present ? data.id.value : this.id,
+      organizationId: data.organizationId.present
+          ? data.organizationId.value
+          : this.organizationId,
+      scopeId: data.scopeId.present ? data.scopeId.value : this.scopeId,
+      version: data.version.present ? data.version.value : this.version,
+      effectiveFrom: data.effectiveFrom.present
+          ? data.effectiveFrom.value
+          : this.effectiveFrom,
+      weeklyOffs:
+          data.weeklyOffs.present ? data.weeklyOffs.value : this.weeklyOffs,
+      offSaturdays: data.offSaturdays.present
+          ? data.offSaturdays.value
+          : this.offSaturdays,
+      holidays: data.holidays.present ? data.holidays.value : this.holidays,
+      isConfigured: data.isConfigured.present
+          ? data.isConfigured.value
+          : this.isConfigured,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarRow(')
+          ..write('id: $id, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('scopeId: $scopeId, ')
+          ..write('version: $version, ')
+          ..write('effectiveFrom: $effectiveFrom, ')
+          ..write('weeklyOffs: $weeklyOffs, ')
+          ..write('offSaturdays: $offSaturdays, ')
+          ..write('holidays: $holidays, ')
+          ..write('isConfigured: $isConfigured, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      organizationId,
+      scopeId,
+      version,
+      effectiveFrom,
+      weeklyOffs,
+      offSaturdays,
+      holidays,
+      isConfigured,
+      updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CalendarRow &&
+          other.id == this.id &&
+          other.organizationId == this.organizationId &&
+          other.scopeId == this.scopeId &&
+          other.version == this.version &&
+          other.effectiveFrom == this.effectiveFrom &&
+          other.weeklyOffs == this.weeklyOffs &&
+          other.offSaturdays == this.offSaturdays &&
+          other.holidays == this.holidays &&
+          other.isConfigured == this.isConfigured &&
+          other.updatedAt == this.updatedAt);
+}
+
+class CalendarRowsCompanion extends UpdateCompanion<CalendarRow> {
+  final Value<String> id;
+  final Value<String> organizationId;
+  final Value<String> scopeId;
+  final Value<int> version;
+  final Value<DateTime> effectiveFrom;
+  final Value<String> weeklyOffs;
+  final Value<String> offSaturdays;
+  final Value<String?> holidays;
+  final Value<bool> isConfigured;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const CalendarRowsCompanion({
+    this.id = const Value.absent(),
+    this.organizationId = const Value.absent(),
+    this.scopeId = const Value.absent(),
+    this.version = const Value.absent(),
+    this.effectiveFrom = const Value.absent(),
+    this.weeklyOffs = const Value.absent(),
+    this.offSaturdays = const Value.absent(),
+    this.holidays = const Value.absent(),
+    this.isConfigured = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CalendarRowsCompanion.insert({
+    required String id,
+    required String organizationId,
+    required String scopeId,
+    required int version,
+    required DateTime effectiveFrom,
+    required String weeklyOffs,
+    required String offSaturdays,
+    this.holidays = const Value.absent(),
+    this.isConfigured = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        organizationId = Value(organizationId),
+        scopeId = Value(scopeId),
+        version = Value(version),
+        effectiveFrom = Value(effectiveFrom),
+        weeklyOffs = Value(weeklyOffs),
+        offSaturdays = Value(offSaturdays),
+        updatedAt = Value(updatedAt);
+  static Insertable<CalendarRow> custom({
+    Expression<String>? id,
+    Expression<String>? organizationId,
+    Expression<String>? scopeId,
+    Expression<int>? version,
+    Expression<DateTime>? effectiveFrom,
+    Expression<String>? weeklyOffs,
+    Expression<String>? offSaturdays,
+    Expression<String>? holidays,
+    Expression<bool>? isConfigured,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (organizationId != null) 'organization_id': organizationId,
+      if (scopeId != null) 'scope_id': scopeId,
+      if (version != null) 'version': version,
+      if (effectiveFrom != null) 'effective_from': effectiveFrom,
+      if (weeklyOffs != null) 'weekly_offs': weeklyOffs,
+      if (offSaturdays != null) 'off_saturdays': offSaturdays,
+      if (holidays != null) 'holidays': holidays,
+      if (isConfigured != null) 'is_configured': isConfigured,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CalendarRowsCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? organizationId,
+      Value<String>? scopeId,
+      Value<int>? version,
+      Value<DateTime>? effectiveFrom,
+      Value<String>? weeklyOffs,
+      Value<String>? offSaturdays,
+      Value<String?>? holidays,
+      Value<bool>? isConfigured,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return CalendarRowsCompanion(
+      id: id ?? this.id,
+      organizationId: organizationId ?? this.organizationId,
+      scopeId: scopeId ?? this.scopeId,
+      version: version ?? this.version,
+      effectiveFrom: effectiveFrom ?? this.effectiveFrom,
+      weeklyOffs: weeklyOffs ?? this.weeklyOffs,
+      offSaturdays: offSaturdays ?? this.offSaturdays,
+      holidays: holidays ?? this.holidays,
+      isConfigured: isConfigured ?? this.isConfigured,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (organizationId.present) {
+      map['organization_id'] = Variable<String>(organizationId.value);
+    }
+    if (scopeId.present) {
+      map['scope_id'] = Variable<String>(scopeId.value);
+    }
+    if (version.present) {
+      map['version'] = Variable<int>(version.value);
+    }
+    if (effectiveFrom.present) {
+      map['effective_from'] = Variable<DateTime>(effectiveFrom.value);
+    }
+    if (weeklyOffs.present) {
+      map['weekly_offs'] = Variable<String>(weeklyOffs.value);
+    }
+    if (offSaturdays.present) {
+      map['off_saturdays'] = Variable<String>(offSaturdays.value);
+    }
+    if (holidays.present) {
+      map['holidays'] = Variable<String>(holidays.value);
+    }
+    if (isConfigured.present) {
+      map['is_configured'] = Variable<bool>(isConfigured.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarRowsCompanion(')
+          ..write('id: $id, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('scopeId: $scopeId, ')
+          ..write('version: $version, ')
+          ..write('effectiveFrom: $effectiveFrom, ')
+          ..write('weeklyOffs: $weeklyOffs, ')
+          ..write('offSaturdays: $offSaturdays, ')
+          ..write('holidays: $holidays, ')
+          ..write('isConfigured: $isConfigured, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
           ..write(')'))
@@ -3957,6 +5155,7 @@ abstract class _$StandInDatabase extends GeneratedDatabase {
       $UserProfileRowsTable(this);
   late final $OrganizationPolicyRowsTable organizationPolicyRows =
       $OrganizationPolicyRowsTable(this);
+  late final $CalendarRowsTable calendarRows = $CalendarRowsTable(this);
   late final $SyncQueueRowsTable syncQueueRows = $SyncQueueRowsTable(this);
   late final $SyncMetadataRowsTable syncMetadataRows =
       $SyncMetadataRowsTable(this);
@@ -3972,6 +5171,7 @@ abstract class _$StandInDatabase extends GeneratedDatabase {
         membershipRows,
         userProfileRows,
         organizationPolicyRows,
+        calendarRows,
         syncQueueRows,
         syncMetadataRows
       ];
@@ -4272,10 +5472,13 @@ typedef $$OrganizationRowsTableCreateCompanionBuilder
   required String id,
   required String name,
   required String type,
+  Value<String?> branch,
   Value<bool> isVerified,
   Value<bool> isHolidayCalendarConfigured,
+  Value<int> followerCount,
   Value<String?> activePolicyId,
   Value<String?> activeCalendarId,
+  Value<String?> createdBy,
   required DateTime updatedAt,
   Value<int> rowid,
 });
@@ -4284,10 +5487,13 @@ typedef $$OrganizationRowsTableUpdateCompanionBuilder
   Value<String> id,
   Value<String> name,
   Value<String> type,
+  Value<String?> branch,
   Value<bool> isVerified,
   Value<bool> isHolidayCalendarConfigured,
+  Value<int> followerCount,
   Value<String?> activePolicyId,
   Value<String?> activeCalendarId,
+  Value<String?> createdBy,
   Value<DateTime> updatedAt,
   Value<int> rowid,
 });
@@ -4310,12 +5516,18 @@ class $$OrganizationRowsTableFilterComposer
   ColumnFilters<String> get type => $composableBuilder(
       column: $table.type, builder: (column) => ColumnFilters(column));
 
+  ColumnFilters<String> get branch => $composableBuilder(
+      column: $table.branch, builder: (column) => ColumnFilters(column));
+
   ColumnFilters<bool> get isVerified => $composableBuilder(
       column: $table.isVerified, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<bool> get isHolidayCalendarConfigured => $composableBuilder(
       column: $table.isHolidayCalendarConfigured,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get followerCount => $composableBuilder(
+      column: $table.followerCount, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get activePolicyId => $composableBuilder(
       column: $table.activePolicyId,
@@ -4324,6 +5536,9 @@ class $$OrganizationRowsTableFilterComposer
   ColumnFilters<String> get activeCalendarId => $composableBuilder(
       column: $table.activeCalendarId,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+      column: $table.createdBy, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnFilters(column));
@@ -4347,11 +5562,18 @@ class $$OrganizationRowsTableOrderingComposer
   ColumnOrderings<String> get type => $composableBuilder(
       column: $table.type, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get branch => $composableBuilder(
+      column: $table.branch, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<bool> get isVerified => $composableBuilder(
       column: $table.isVerified, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<bool> get isHolidayCalendarConfigured => $composableBuilder(
       column: $table.isHolidayCalendarConfigured,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get followerCount => $composableBuilder(
+      column: $table.followerCount,
       builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<String> get activePolicyId => $composableBuilder(
@@ -4361,6 +5583,9 @@ class $$OrganizationRowsTableOrderingComposer
   ColumnOrderings<String> get activeCalendarId => $composableBuilder(
       column: $table.activeCalendarId,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+      column: $table.createdBy, builder: (column) => ColumnOrderings(column));
 
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
@@ -4384,17 +5609,26 @@ class $$OrganizationRowsTableAnnotationComposer
   GeneratedColumn<String> get type =>
       $composableBuilder(column: $table.type, builder: (column) => column);
 
+  GeneratedColumn<String> get branch =>
+      $composableBuilder(column: $table.branch, builder: (column) => column);
+
   GeneratedColumn<bool> get isVerified => $composableBuilder(
       column: $table.isVerified, builder: (column) => column);
 
   GeneratedColumn<bool> get isHolidayCalendarConfigured => $composableBuilder(
       column: $table.isHolidayCalendarConfigured, builder: (column) => column);
 
+  GeneratedColumn<int> get followerCount => $composableBuilder(
+      column: $table.followerCount, builder: (column) => column);
+
   GeneratedColumn<String> get activePolicyId => $composableBuilder(
       column: $table.activePolicyId, builder: (column) => column);
 
   GeneratedColumn<String> get activeCalendarId => $composableBuilder(
       column: $table.activeCalendarId, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
@@ -4430,10 +5664,13 @@ class $$OrganizationRowsTableTableManager extends RootTableManager<
             Value<String> id = const Value.absent(),
             Value<String> name = const Value.absent(),
             Value<String> type = const Value.absent(),
+            Value<String?> branch = const Value.absent(),
             Value<bool> isVerified = const Value.absent(),
             Value<bool> isHolidayCalendarConfigured = const Value.absent(),
+            Value<int> followerCount = const Value.absent(),
             Value<String?> activePolicyId = const Value.absent(),
             Value<String?> activeCalendarId = const Value.absent(),
+            Value<String?> createdBy = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -4441,10 +5678,13 @@ class $$OrganizationRowsTableTableManager extends RootTableManager<
             id: id,
             name: name,
             type: type,
+            branch: branch,
             isVerified: isVerified,
             isHolidayCalendarConfigured: isHolidayCalendarConfigured,
+            followerCount: followerCount,
             activePolicyId: activePolicyId,
             activeCalendarId: activeCalendarId,
+            createdBy: createdBy,
             updatedAt: updatedAt,
             rowid: rowid,
           ),
@@ -4452,10 +5692,13 @@ class $$OrganizationRowsTableTableManager extends RootTableManager<
             required String id,
             required String name,
             required String type,
+            Value<String?> branch = const Value.absent(),
             Value<bool> isVerified = const Value.absent(),
             Value<bool> isHolidayCalendarConfigured = const Value.absent(),
+            Value<int> followerCount = const Value.absent(),
             Value<String?> activePolicyId = const Value.absent(),
             Value<String?> activeCalendarId = const Value.absent(),
+            Value<String?> createdBy = const Value.absent(),
             required DateTime updatedAt,
             Value<int> rowid = const Value.absent(),
           }) =>
@@ -4463,10 +5706,13 @@ class $$OrganizationRowsTableTableManager extends RootTableManager<
             id: id,
             name: name,
             type: type,
+            branch: branch,
             isVerified: isVerified,
             isHolidayCalendarConfigured: isHolidayCalendarConfigured,
+            followerCount: followerCount,
             activePolicyId: activePolicyId,
             activeCalendarId: activeCalendarId,
+            createdBy: createdBy,
             updatedAt: updatedAt,
             rowid: rowid,
           ),
@@ -4700,6 +5946,16 @@ typedef $$FollowRowsTableCreateCompanionBuilder = FollowRowsCompanion Function({
   Value<double?> personalTargetPercent,
   required String status,
   required DateTime followedAt,
+  Value<String?> personalBasis,
+  Value<String?> personalEvaluationPeriod,
+  Value<double?> personalFullUnit,
+  Value<double?> personalHalfUnit,
+  Value<DateTime?> personalStartDate,
+  Value<DateTime?> personalEndDate,
+  Value<String?> personalWeeklyOffs,
+  Value<String?> personalOffSaturdays,
+  Value<String?> personalHolidays,
+  Value<bool> isPersonalCalendarConfigured,
   Value<int> rowid,
 });
 typedef $$FollowRowsTableUpdateCompanionBuilder = FollowRowsCompanion Function({
@@ -4709,6 +5965,16 @@ typedef $$FollowRowsTableUpdateCompanionBuilder = FollowRowsCompanion Function({
   Value<double?> personalTargetPercent,
   Value<String> status,
   Value<DateTime> followedAt,
+  Value<String?> personalBasis,
+  Value<String?> personalEvaluationPeriod,
+  Value<double?> personalFullUnit,
+  Value<double?> personalHalfUnit,
+  Value<DateTime?> personalStartDate,
+  Value<DateTime?> personalEndDate,
+  Value<String?> personalWeeklyOffs,
+  Value<String?> personalOffSaturdays,
+  Value<String?> personalHolidays,
+  Value<bool> isPersonalCalendarConfigured,
   Value<int> rowid,
 });
 
@@ -4740,6 +6006,45 @@ class $$FollowRowsTableFilterComposer
 
   ColumnFilters<DateTime> get followedAt => $composableBuilder(
       column: $table.followedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get personalBasis => $composableBuilder(
+      column: $table.personalBasis, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get personalEvaluationPeriod => $composableBuilder(
+      column: $table.personalEvaluationPeriod,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get personalFullUnit => $composableBuilder(
+      column: $table.personalFullUnit,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get personalHalfUnit => $composableBuilder(
+      column: $table.personalHalfUnit,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get personalStartDate => $composableBuilder(
+      column: $table.personalStartDate,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get personalEndDate => $composableBuilder(
+      column: $table.personalEndDate,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get personalWeeklyOffs => $composableBuilder(
+      column: $table.personalWeeklyOffs,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get personalOffSaturdays => $composableBuilder(
+      column: $table.personalOffSaturdays,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get personalHolidays => $composableBuilder(
+      column: $table.personalHolidays,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isPersonalCalendarConfigured => $composableBuilder(
+      column: $table.isPersonalCalendarConfigured,
+      builder: (column) => ColumnFilters(column));
 }
 
 class $$FollowRowsTableOrderingComposer
@@ -4770,6 +6075,46 @@ class $$FollowRowsTableOrderingComposer
 
   ColumnOrderings<DateTime> get followedAt => $composableBuilder(
       column: $table.followedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get personalBasis => $composableBuilder(
+      column: $table.personalBasis,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get personalEvaluationPeriod => $composableBuilder(
+      column: $table.personalEvaluationPeriod,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get personalFullUnit => $composableBuilder(
+      column: $table.personalFullUnit,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get personalHalfUnit => $composableBuilder(
+      column: $table.personalHalfUnit,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get personalStartDate => $composableBuilder(
+      column: $table.personalStartDate,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get personalEndDate => $composableBuilder(
+      column: $table.personalEndDate,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get personalWeeklyOffs => $composableBuilder(
+      column: $table.personalWeeklyOffs,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get personalOffSaturdays => $composableBuilder(
+      column: $table.personalOffSaturdays,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get personalHolidays => $composableBuilder(
+      column: $table.personalHolidays,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isPersonalCalendarConfigured => $composableBuilder(
+      column: $table.isPersonalCalendarConfigured,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$FollowRowsTableAnnotationComposer
@@ -4798,6 +6143,36 @@ class $$FollowRowsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get followedAt => $composableBuilder(
       column: $table.followedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get personalBasis => $composableBuilder(
+      column: $table.personalBasis, builder: (column) => column);
+
+  GeneratedColumn<String> get personalEvaluationPeriod => $composableBuilder(
+      column: $table.personalEvaluationPeriod, builder: (column) => column);
+
+  GeneratedColumn<double> get personalFullUnit => $composableBuilder(
+      column: $table.personalFullUnit, builder: (column) => column);
+
+  GeneratedColumn<double> get personalHalfUnit => $composableBuilder(
+      column: $table.personalHalfUnit, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get personalStartDate => $composableBuilder(
+      column: $table.personalStartDate, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get personalEndDate => $composableBuilder(
+      column: $table.personalEndDate, builder: (column) => column);
+
+  GeneratedColumn<String> get personalWeeklyOffs => $composableBuilder(
+      column: $table.personalWeeklyOffs, builder: (column) => column);
+
+  GeneratedColumn<String> get personalOffSaturdays => $composableBuilder(
+      column: $table.personalOffSaturdays, builder: (column) => column);
+
+  GeneratedColumn<String> get personalHolidays => $composableBuilder(
+      column: $table.personalHolidays, builder: (column) => column);
+
+  GeneratedColumn<bool> get isPersonalCalendarConfigured => $composableBuilder(
+      column: $table.isPersonalCalendarConfigured, builder: (column) => column);
 }
 
 class $$FollowRowsTableTableManager extends RootTableManager<
@@ -4829,6 +6204,16 @@ class $$FollowRowsTableTableManager extends RootTableManager<
             Value<double?> personalTargetPercent = const Value.absent(),
             Value<String> status = const Value.absent(),
             Value<DateTime> followedAt = const Value.absent(),
+            Value<String?> personalBasis = const Value.absent(),
+            Value<String?> personalEvaluationPeriod = const Value.absent(),
+            Value<double?> personalFullUnit = const Value.absent(),
+            Value<double?> personalHalfUnit = const Value.absent(),
+            Value<DateTime?> personalStartDate = const Value.absent(),
+            Value<DateTime?> personalEndDate = const Value.absent(),
+            Value<String?> personalWeeklyOffs = const Value.absent(),
+            Value<String?> personalOffSaturdays = const Value.absent(),
+            Value<String?> personalHolidays = const Value.absent(),
+            Value<bool> isPersonalCalendarConfigured = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FollowRowsCompanion(
@@ -4838,6 +6223,16 @@ class $$FollowRowsTableTableManager extends RootTableManager<
             personalTargetPercent: personalTargetPercent,
             status: status,
             followedAt: followedAt,
+            personalBasis: personalBasis,
+            personalEvaluationPeriod: personalEvaluationPeriod,
+            personalFullUnit: personalFullUnit,
+            personalHalfUnit: personalHalfUnit,
+            personalStartDate: personalStartDate,
+            personalEndDate: personalEndDate,
+            personalWeeklyOffs: personalWeeklyOffs,
+            personalOffSaturdays: personalOffSaturdays,
+            personalHolidays: personalHolidays,
+            isPersonalCalendarConfigured: isPersonalCalendarConfigured,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -4847,6 +6242,16 @@ class $$FollowRowsTableTableManager extends RootTableManager<
             Value<double?> personalTargetPercent = const Value.absent(),
             required String status,
             required DateTime followedAt,
+            Value<String?> personalBasis = const Value.absent(),
+            Value<String?> personalEvaluationPeriod = const Value.absent(),
+            Value<double?> personalFullUnit = const Value.absent(),
+            Value<double?> personalHalfUnit = const Value.absent(),
+            Value<DateTime?> personalStartDate = const Value.absent(),
+            Value<DateTime?> personalEndDate = const Value.absent(),
+            Value<String?> personalWeeklyOffs = const Value.absent(),
+            Value<String?> personalOffSaturdays = const Value.absent(),
+            Value<String?> personalHolidays = const Value.absent(),
+            Value<bool> isPersonalCalendarConfigured = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               FollowRowsCompanion.insert(
@@ -4856,6 +6261,16 @@ class $$FollowRowsTableTableManager extends RootTableManager<
             personalTargetPercent: personalTargetPercent,
             status: status,
             followedAt: followedAt,
+            personalBasis: personalBasis,
+            personalEvaluationPeriod: personalEvaluationPeriod,
+            personalFullUnit: personalFullUnit,
+            personalHalfUnit: personalHalfUnit,
+            personalStartDate: personalStartDate,
+            personalEndDate: personalEndDate,
+            personalWeeklyOffs: personalWeeklyOffs,
+            personalOffSaturdays: personalOffSaturdays,
+            personalHolidays: personalHolidays,
+            isPersonalCalendarConfigured: isPersonalCalendarConfigured,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -5287,6 +6702,7 @@ typedef $$OrganizationPolicyRowsTableCreateCompanionBuilder
   required String calculationBasis,
   required double fullUnit,
   required double halfUnit,
+  Value<String> weeklyOffs,
   Value<DateTime?> startDate,
   Value<DateTime?> endDate,
   required DateTime updatedAt,
@@ -5305,6 +6721,7 @@ typedef $$OrganizationPolicyRowsTableUpdateCompanionBuilder
   Value<String> calculationBasis,
   Value<double> fullUnit,
   Value<double> halfUnit,
+  Value<String> weeklyOffs,
   Value<DateTime?> startDate,
   Value<DateTime?> endDate,
   Value<DateTime> updatedAt,
@@ -5356,6 +6773,9 @@ class $$OrganizationPolicyRowsTableFilterComposer
 
   ColumnFilters<double> get halfUnit => $composableBuilder(
       column: $table.halfUnit, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get weeklyOffs => $composableBuilder(
+      column: $table.weeklyOffs, builder: (column) => ColumnFilters(column));
 
   ColumnFilters<DateTime> get startDate => $composableBuilder(
       column: $table.startDate, builder: (column) => ColumnFilters(column));
@@ -5414,6 +6834,9 @@ class $$OrganizationPolicyRowsTableOrderingComposer
   ColumnOrderings<double> get halfUnit => $composableBuilder(
       column: $table.halfUnit, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get weeklyOffs => $composableBuilder(
+      column: $table.weeklyOffs, builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<DateTime> get startDate => $composableBuilder(
       column: $table.startDate, builder: (column) => ColumnOrderings(column));
 
@@ -5465,6 +6888,9 @@ class $$OrganizationPolicyRowsTableAnnotationComposer
 
   GeneratedColumn<double> get halfUnit =>
       $composableBuilder(column: $table.halfUnit, builder: (column) => column);
+
+  GeneratedColumn<String> get weeklyOffs => $composableBuilder(
+      column: $table.weeklyOffs, builder: (column) => column);
 
   GeneratedColumn<DateTime> get startDate =>
       $composableBuilder(column: $table.startDate, builder: (column) => column);
@@ -5518,6 +6944,7 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             Value<String> calculationBasis = const Value.absent(),
             Value<double> fullUnit = const Value.absent(),
             Value<double> halfUnit = const Value.absent(),
+            Value<String> weeklyOffs = const Value.absent(),
             Value<DateTime?> startDate = const Value.absent(),
             Value<DateTime?> endDate = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -5535,6 +6962,7 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             calculationBasis: calculationBasis,
             fullUnit: fullUnit,
             halfUnit: halfUnit,
+            weeklyOffs: weeklyOffs,
             startDate: startDate,
             endDate: endDate,
             updatedAt: updatedAt,
@@ -5552,6 +6980,7 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             required String calculationBasis,
             required double fullUnit,
             required double halfUnit,
+            Value<String> weeklyOffs = const Value.absent(),
             Value<DateTime?> startDate = const Value.absent(),
             Value<DateTime?> endDate = const Value.absent(),
             required DateTime updatedAt,
@@ -5569,6 +6998,7 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             calculationBasis: calculationBasis,
             fullUnit: fullUnit,
             halfUnit: halfUnit,
+            weeklyOffs: weeklyOffs,
             startDate: startDate,
             endDate: endDate,
             updatedAt: updatedAt,
@@ -5598,6 +7028,260 @@ typedef $$OrganizationPolicyRowsTableProcessedTableManager
         ),
         OrganizationPolicyRow,
         PrefetchHooks Function()>;
+typedef $$CalendarRowsTableCreateCompanionBuilder = CalendarRowsCompanion
+    Function({
+  required String id,
+  required String organizationId,
+  required String scopeId,
+  required int version,
+  required DateTime effectiveFrom,
+  required String weeklyOffs,
+  required String offSaturdays,
+  Value<String?> holidays,
+  Value<bool> isConfigured,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$CalendarRowsTableUpdateCompanionBuilder = CalendarRowsCompanion
+    Function({
+  Value<String> id,
+  Value<String> organizationId,
+  Value<String> scopeId,
+  Value<int> version,
+  Value<DateTime> effectiveFrom,
+  Value<String> weeklyOffs,
+  Value<String> offSaturdays,
+  Value<String?> holidays,
+  Value<bool> isConfigured,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$CalendarRowsTableFilterComposer
+    extends Composer<_$StandInDatabase, $CalendarRowsTable> {
+  $$CalendarRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get organizationId => $composableBuilder(
+      column: $table.organizationId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get scopeId => $composableBuilder(
+      column: $table.scopeId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get version => $composableBuilder(
+      column: $table.version, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get effectiveFrom => $composableBuilder(
+      column: $table.effectiveFrom, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get weeklyOffs => $composableBuilder(
+      column: $table.weeklyOffs, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get offSaturdays => $composableBuilder(
+      column: $table.offSaturdays, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get holidays => $composableBuilder(
+      column: $table.holidays, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isConfigured => $composableBuilder(
+      column: $table.isConfigured, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$CalendarRowsTableOrderingComposer
+    extends Composer<_$StandInDatabase, $CalendarRowsTable> {
+  $$CalendarRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get organizationId => $composableBuilder(
+      column: $table.organizationId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get scopeId => $composableBuilder(
+      column: $table.scopeId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get version => $composableBuilder(
+      column: $table.version, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get effectiveFrom => $composableBuilder(
+      column: $table.effectiveFrom,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get weeklyOffs => $composableBuilder(
+      column: $table.weeklyOffs, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get offSaturdays => $composableBuilder(
+      column: $table.offSaturdays,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get holidays => $composableBuilder(
+      column: $table.holidays, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isConfigured => $composableBuilder(
+      column: $table.isConfigured,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$CalendarRowsTableAnnotationComposer
+    extends Composer<_$StandInDatabase, $CalendarRowsTable> {
+  $$CalendarRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get organizationId => $composableBuilder(
+      column: $table.organizationId, builder: (column) => column);
+
+  GeneratedColumn<String> get scopeId =>
+      $composableBuilder(column: $table.scopeId, builder: (column) => column);
+
+  GeneratedColumn<int> get version =>
+      $composableBuilder(column: $table.version, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get effectiveFrom => $composableBuilder(
+      column: $table.effectiveFrom, builder: (column) => column);
+
+  GeneratedColumn<String> get weeklyOffs => $composableBuilder(
+      column: $table.weeklyOffs, builder: (column) => column);
+
+  GeneratedColumn<String> get offSaturdays => $composableBuilder(
+      column: $table.offSaturdays, builder: (column) => column);
+
+  GeneratedColumn<String> get holidays =>
+      $composableBuilder(column: $table.holidays, builder: (column) => column);
+
+  GeneratedColumn<bool> get isConfigured => $composableBuilder(
+      column: $table.isConfigured, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$CalendarRowsTableTableManager extends RootTableManager<
+    _$StandInDatabase,
+    $CalendarRowsTable,
+    CalendarRow,
+    $$CalendarRowsTableFilterComposer,
+    $$CalendarRowsTableOrderingComposer,
+    $$CalendarRowsTableAnnotationComposer,
+    $$CalendarRowsTableCreateCompanionBuilder,
+    $$CalendarRowsTableUpdateCompanionBuilder,
+    (
+      CalendarRow,
+      BaseReferences<_$StandInDatabase, $CalendarRowsTable, CalendarRow>
+    ),
+    CalendarRow,
+    PrefetchHooks Function()> {
+  $$CalendarRowsTableTableManager(
+      _$StandInDatabase db, $CalendarRowsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CalendarRowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CalendarRowsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CalendarRowsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> organizationId = const Value.absent(),
+            Value<String> scopeId = const Value.absent(),
+            Value<int> version = const Value.absent(),
+            Value<DateTime> effectiveFrom = const Value.absent(),
+            Value<String> weeklyOffs = const Value.absent(),
+            Value<String> offSaturdays = const Value.absent(),
+            Value<String?> holidays = const Value.absent(),
+            Value<bool> isConfigured = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              CalendarRowsCompanion(
+            id: id,
+            organizationId: organizationId,
+            scopeId: scopeId,
+            version: version,
+            effectiveFrom: effectiveFrom,
+            weeklyOffs: weeklyOffs,
+            offSaturdays: offSaturdays,
+            holidays: holidays,
+            isConfigured: isConfigured,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String organizationId,
+            required String scopeId,
+            required int version,
+            required DateTime effectiveFrom,
+            required String weeklyOffs,
+            required String offSaturdays,
+            Value<String?> holidays = const Value.absent(),
+            Value<bool> isConfigured = const Value.absent(),
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              CalendarRowsCompanion.insert(
+            id: id,
+            organizationId: organizationId,
+            scopeId: scopeId,
+            version: version,
+            effectiveFrom: effectiveFrom,
+            weeklyOffs: weeklyOffs,
+            offSaturdays: offSaturdays,
+            holidays: holidays,
+            isConfigured: isConfigured,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$CalendarRowsTableProcessedTableManager = ProcessedTableManager<
+    _$StandInDatabase,
+    $CalendarRowsTable,
+    CalendarRow,
+    $$CalendarRowsTableFilterComposer,
+    $$CalendarRowsTableOrderingComposer,
+    $$CalendarRowsTableAnnotationComposer,
+    $$CalendarRowsTableCreateCompanionBuilder,
+    $$CalendarRowsTableUpdateCompanionBuilder,
+    (
+      CalendarRow,
+      BaseReferences<_$StandInDatabase, $CalendarRowsTable, CalendarRow>
+    ),
+    CalendarRow,
+    PrefetchHooks Function()>;
 typedef $$SyncQueueRowsTableCreateCompanionBuilder = SyncQueueRowsCompanion
     Function({
   required String id,
@@ -5967,6 +7651,8 @@ class $StandInDatabaseManager {
   $$OrganizationPolicyRowsTableTableManager get organizationPolicyRows =>
       $$OrganizationPolicyRowsTableTableManager(
           _db, _db.organizationPolicyRows);
+  $$CalendarRowsTableTableManager get calendarRows =>
+      $$CalendarRowsTableTableManager(_db, _db.calendarRows);
   $$SyncQueueRowsTableTableManager get syncQueueRows =>
       $$SyncQueueRowsTableTableManager(_db, _db.syncQueueRows);
   $$SyncMetadataRowsTableTableManager get syncMetadataRows =>

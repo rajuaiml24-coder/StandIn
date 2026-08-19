@@ -1,9 +1,12 @@
 import 'package:drift/drift.dart';
-import 'package:drift/wasm.dart'; // Future-proof if we ever add wasm manually
-import 'package:drift/web.dart';
+import 'package:drift_flutter/drift_flutter.dart';
 
-QueryExecutor connect() {
-  // Use the established IndexedDB-based WebDatabase for maximum reliability
-  // on PWA without requiring external .wasm files.
-  return WebDatabase('standin');
+QueryExecutor connect(String dbName) {
+  return driftDatabase(
+    name: dbName,
+    web: DriftWebOptions(
+      sqlite3Wasm: Uri.parse('sqlite3.wasm'),
+      driftWorker: Uri.parse('drift_worker.js'),
+    ),
+  );
 }

@@ -5,6 +5,7 @@ import 'package:standin/src/data/organization_repository.dart';
 import 'package:standin/src/data/remote/firestore_org_remote.dart';
 import 'package:standin/src/domain/attendance.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:drift/drift.dart';
 
 class MockFirestoreOrgRemote extends Mock implements FirestoreOrgRemote {}
 
@@ -17,6 +18,8 @@ void main() {
     database = StandInDatabase.executor(NativeDatabase.memory());
     mockRemote = MockFirestoreOrgRemote();
     repository = OrganizationRepository(database, mockRemote);
+    
+    when(() => mockRemote.getPolicy(any(), any())).thenAnswer((_) async => null);
   });
 
   tearDown(() async {
@@ -52,7 +55,6 @@ void main() {
       expect(resolved?.id, 'p-org');
 
       // 2. Add Branch Rules
-      final branchPolicy = orgPolicy.copyWith(id: 'p-branch', scopeId: branchId, minimumPercent: 80);
       await database.savePolicy(OrganizationPolicyRowsCompanion.insert(
         policyId: 'p-branch', organizationId: orgId, scopeId: branchId,
         version: 1, effectiveFrom: DateTime.now(), state: 'official',

@@ -45,4 +45,15 @@ class FirestoreAttendanceRemote {
       );
     }).toList();
   }
+
+  Future<void> deleteAllAttendance(String uid) async {
+    final snapshot = await _firestore.collection('users').doc(uid).collection('attendance').get();
+    if (snapshot.docs.isEmpty) return;
+    
+    final batch = _firestore.batch();
+    for (var doc in snapshot.docs) {
+      batch.delete(doc.reference);
+    }
+    await batch.commit();
+  }
 }

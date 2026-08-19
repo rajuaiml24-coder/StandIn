@@ -13,24 +13,23 @@ class OrganizationSearchPage extends StatefulWidget {
 
 class _OrganizationSearchPageState extends State<OrganizationSearchPage> {
   final _searchController = TextEditingController();
-  final List<Organization> _mockOrgs = [
-    const Organization(id: 'org-1', name: 'StandIn Demo University', type: OrganizationType.college, branch: 'Main Campus', isVerified: true, followerCount: 1250),
-    const Organization(id: 'org-2', name: 'Global Tech Corp', type: OrganizationType.company, branch: 'London Office', isVerified: true, followerCount: 450),
-    const Organization(id: 'org-3', name: 'St. Mary\'s College', type: OrganizationType.college, branch: 'Downtown', isVerified: false, followerCount: 85),
-  ];
-
   List<Organization> _results = [];
+  bool _loading = false;
 
   @override
   void initState() {
     super.initState();
-    _results = _mockOrgs;
+    _onSearch('');
   }
 
-  void _onSearch(String query) {
-    setState(() {
-      _results = _mockOrgs.where((o) => o.name.toLowerCase().contains(query.toLowerCase())).toList();
-    });
+  void _onSearch(String query) async {
+    setState(() => _loading = true);
+    try {
+      final results = await widget.controller.searchOrganizations(query);
+      if (mounted) setState(() => _results = results);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -43,6 +42,12 @@ class _OrganizationSearchPageState extends State<OrganizationSearchPage> {
         icon: const Icon(Icons.arrow_back, color: navy),
         onPressed: widget.controller.back,
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: Image.asset('assets/brand/standin_logo.png', height: 28),
+        ),
+      ],
     ),
     body: SafeArea(
       child: Padding(
@@ -67,11 +72,20 @@ class _OrganizationSearchPageState extends State<OrganizationSearchPage> {
               ),
             ),
             const SizedBox(height: 24),
-            const Text('SEARCH RESULTS', style: TextStyle(fontSize: 12, letterSpacing: 1, fontWeight: FontWeight.w800, color: Color(0xFF667085))),
+            Text(
+              _searchController.text.isEmpty 
+                ? (widget.controller.role == AppRole.student ? 'POPULAR COLLEGES' : 'POPULAR COMPANIES')
+                : 'SEARCH RESULTS', 
+              style: const TextStyle(fontSize: 12, letterSpacing: 1, fontWeight: FontWeight.w800, color: Color(0xFF667085)),
+            ),
             const SizedBox(height: 12),
             Expanded(
-              child: ListView.separated(
-                itemCount: _results.length,
+              child: _loading 
+                ? const Center(child: CircularProgressIndicator())
+                : _results.isEmpty && _searchController.text.length >= 2
+                    ? const Center(child: Text('No matching organizations found.', style: TextStyle(color: Color(0xFF98A2B3))))
+                    : ListView.separated(
+                        itemCount: _results.length,
                 separatorBuilder: (_, __) => const SizedBox(height: 12),
                 itemBuilder: (_, index) {
                   final org = _results[index];
@@ -89,24 +103,10 @@ class _OrganizationSearchPageState extends State<OrganizationSearchPage> {
                           if (org.isVerified) ...[const SizedBox(width: 6), const Icon(Icons.verified, color: Colors.blue, size: 16)],
                         ],
                       ),
-                      subtitle: Text('${org.branch} • ${org.followerCount} followers', style: const TextStyle(color: Color(0xFF667085))),
+                      subtitle: Text('${org.branch ?? ''} • ${org.anonymousCreatorId} • ${org.followerCount} followers', style: const TextStyle(color: Color(0xFF667085))),
                       trailing: const Icon(Icons.chevron_right, color: navy),
                       onTap: () {
-                        // Mock policy for demo
-                        final policy = AttendancePolicy(
-                          id: '${org.id}-p1',
-                          version: 1,
-                          effectiveFrom: DateTime(2026, 8, 1),
-                          state: org.isVerified ? PolicyState.official : PolicyState.community,
-                          evaluationPeriod: EvaluationPeriod.monthly,
-                          minimumPercent: 75,
-                          basis: CalculationBasis.hours,
-                          fullUnit: 7,
-                          halfUnit: 3.5,
-                          startDate: DateTime(2026, 1, 1), // Mock dates for existing org
-                          endDate: DateTime(2026, 6, 30),
-                        );
-                        widget.controller.selectOrganization(org, policy);
+                        widget.controller.selectOrganization(org);
                       },
                     ),
                   );

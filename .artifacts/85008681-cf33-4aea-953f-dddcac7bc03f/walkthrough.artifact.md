@@ -1,43 +1,54 @@
-# Walkthrough: Modern Drift Web Migration (WASM)
+# Walkthrough: Semester Calculation & Profile Context Fixes
 
-I have successfully migrated the web database implementation to the modern Drift WASM engine. This resolves the WebAssembly "magic word" error and the missing `web` parameter configuration issue.
+I have fixed the semester calculation bug, resolved the unit display inconsistencies, and implemented a comprehensive "Following Context" in the user profile.
+
+## Key Fixes
+
+### 1. Semester Attendance Calculation
+Previously, the app failed to calculate semester progress because it was resolving rules using a "global" scope instead of the specific Semester scope.
+- **Context-Aware Resolution**: I refactored the app startup to load your active `Follow` record first. StandIn now uses the exact College, Branch, and Semester IDs saved in your follow record to resolve rules.
+- **Academic Period Enforcement**: This fix ensures that your Semester's **Start and End dates** are correctly loaded into the `PolicyEngine`, enabling accurate tracking for long-term periods.
+
+### 2. Intelligent Unit Formatting
+Fixed the bug where "classes" were referred to as "periods" and pluralization was incorrect (e.g., "1 days").
+- **Centralized Mapping**:
+    - `periods` -> **"class" / "classes"**
+    - `hours` -> **"hour" / "hours"**
+    - `days` -> **"day" / "days"**
+- **Natural Pluralization**: All recovery messages and dashboard cards now use grammatically correct labels based on the actual value (e.g., "Attend 1 more class" vs "Attend 2 more classes").
+
+### 3. Profile Context & Data Isolation
+The Profile page is now a live view of your tracking hierarchy, clearly distinguishing between community rules and your private settings.
+- **Full Hierarchy View**: See exactly which institution, branch, and semester you are following.
+- **Academic Period Summary**: Displays your semester's date range (e.g., Aug 2026 – Nov 2026) directly on the profile.
+- **Privacy Separation**:
+    - **"Official Attendance Rules"**: Shows the shared requirements for your cohort.
+    - **"My Attendance Settings"**: Displays your private overrides (e.g., a personal 80% target), ensuring these choices never overwrite organization data or affect other students.
 
 ## Changes Made
 
-### 1. Database Connection (Web)
-I updated [web.dart](file:///C:/StandIn/lib/src/data/local/connection/web.dart) to use the modern `driftDatabase` API from `package:drift_flutter`. Unlike the mobile version, the web version of this API strictly requires `DriftWebOptions` to point to the WASM worker and SQLite module.
+### Domain & Logic
+- **`attendance.dart`**: Added `CalculationBasis.label(double value)` for centralized formatting.
+- **`policy_engine.dart`**: Updated `summarize` to use dynamic unit labels in recovery messages.
 
-### 2. Assets Deployment
-I downloaded and installed the following assets into the [web/](file:///C:/StandIn/web/) directory:
-- **`sqlite3.wasm`**: The binary SQLite module.
-- **`drift_worker.js`**: The web worker script that hosts the database.
-
-These versions were selected from the official [Drift 2.31.0 Release](https://github.com/simolus3/drift/releases/tag/drift-2.31.0) to ensure strict compatibility with your installed `drift` version.
-
-### 3. HTML Cleanup
-Removed the legacy `sql-wasm.js` script from [index.html](file:///C:/StandIn/web/index.html) as the modern implementation handles asset loading dynamically via the worker.
+### App Architecture
+- **`app.dart`**:
+    - Refactored `StandInApp` to resolve the `Follow` record before loading the Dashboard.
+    - Implemented a context-aware `ProfilePage` using local Drift data.
+    - Fixed the status label logic in `_AttendanceHero` (now correctly shows "• AT RISK").
 
 ## Verification Results
 
-### Automated Verification
-- **`flutter analyze`**: Passed (11 info issues in tests unrelated to this change).
-- **`flutter test`**: Passed (38 tests).
-- **`flutter build web`**: Passed.
+### Automated Tests
+- **`unit_formatting_test.dart`**: Verified that "class/classes", "hour/hours", and "day/days" resolve correctly for both singular and plural values.
+- **`semester_resolution_test.dart`**: Confirmed that rules for a specific Semester are correctly resolved when followed, including start/end dates.
 
-### Assets Integrity
-I verified the WASM magic word in the downloaded file:
-```powershell
-00-61-73-6D (Correct magic word for WASM)
-```
+### Manual Scenarios Verified
+| Scenario | Behavior |
+| :--- | :--- |
+| **Semester Tracking** | Mark attendance in a Semester-based period. Verified % updates on Dashboard. |
+| **Unit Consistency** | Changed basis to Hours. Verified AdviceCard showed "X more hours". |
+| **Profile Isolation** | Verified that personal target overrides on the Profile page are correctly labeled and private to the user. |
 
-## How to Verify Manually
-1. Run the app in Chrome:
-   ```bash
-   flutter run -d chrome
-   ```
-2. Open Browser DevTools (F12) -> Console. Ensure there are no "magic word" or "web parameter" errors.
-3. Go to **Application** -> **IndexedDB**. You should see a database named `drift_db/standin` (or similar) created by the worker.
-4. Sign in with Google and mark attendance. Refresh the page to confirm the data persists.
-
-> [!NOTE]
-> The Android implementation in [native.dart](file:///C:/StandIn/lib/src/data/local/connection/native.dart) was preserved and remains fully functional as it was already using the modern `driftDatabase` API.
+> [!TIP]
+> Your tracking is now fully **context-aware**. If you follow a Semester, the app uses that specific academic window; if you follow a Branch, it falls back to departmental rules automatically.

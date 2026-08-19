@@ -16,14 +16,13 @@ class PolicySetupPeriodPage extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('When should StandIn\nevaluate your attendance?', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: navy, height: 1.2)),
+          const Text('How often should we\nevaluate your attendance?', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: navy, height: 1.2)),
           const SizedBox(height: 12),
-          const Text('This defines how often your safety limit resets.', style: TextStyle(fontSize: 15, color: Color(0xFF667085))),
+          const Text('This defines your tracking period.', style: TextStyle(fontSize: 15, color: Color(0xFF667085))),
           const SizedBox(height: 32),
           Expanded(
             child: ListView(
               children: [
-                _PeriodTile(label: 'Weekly', value: EvaluationPeriod.weekly, controller: controller),
                 _PeriodTile(label: 'Monthly', value: EvaluationPeriod.monthly, controller: controller),
                 _PeriodTile(label: 'Quarterly', value: EvaluationPeriod.quarterly, controller: controller),
                 if (controller.role == AppRole.student) ...[

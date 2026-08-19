@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../app.dart';
 import '../../domain/attendance.dart';
 import '../../domain/validators.dart';
@@ -52,6 +51,12 @@ class _OrganizationCreatePageState extends State<OrganizationCreatePage> {
         icon: const Icon(Icons.arrow_back, color: navy),
         onPressed: widget.controller.back,
       ),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 20),
+          child: Image.asset('assets/brand/standin_logo.png', height: 28),
+        ),
+      ],
     ),
     body: SafeArea(
       child: LayoutBuilder(
@@ -93,45 +98,6 @@ class _OrganizationCreatePageState extends State<OrganizationCreatePage> {
                           border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
                         ),
                       ),
-                      const SizedBox(height: 32),
-                      const Text(
-                        'INITIAL POLICY (DRAFT)',
-                        style: TextStyle(fontSize: 12, letterSpacing: 1, fontWeight: FontWeight.w800, color: Color(0xFF667085)),
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: TextField(
-                              controller: _targetController,
-                              keyboardType: TextInputType.number,
-                              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                              decoration: const InputDecoration(
-                                labelText: 'Target %',
-                                suffixText: '%',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: TextField(
-                              controller: _hoursController,
-                              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                              decoration: const InputDecoration(
-                                labelText: 'Full Day',
-                                suffixText: 'h',
-                                border: OutlineInputBorder(borderRadius: BorderRadius.all(Radius.circular(12))),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'This policy is personal and not official until verified.',
-                        style: TextStyle(fontSize: 12, color: Color(0xFF98A2B3)),
-                      ),
                       const Spacer(),
                       const SizedBox(height: 20),
                       SizedBox(
@@ -139,20 +105,7 @@ class _OrganizationCreatePageState extends State<OrganizationCreatePage> {
                         height: 56,
                         child: FilledButton(
                           onPressed: _nameValidation.isValid ? () {
-                            final policy = AttendancePolicy(
-                              id: 'draft-${DateTime.now().millisecondsSinceEpoch}',
-                              version: 0,
-                              effectiveFrom: DateTime.now(),
-                              state: PolicyState.draft,
-                              evaluationPeriod: widget.controller.role == AppRole.student ? EvaluationPeriod.semester : EvaluationPeriod.monthly,
-                              minimumPercent: double.tryParse(_targetController.text) ?? 75,
-                              basis: CalculationBasis.hours,
-                              fullUnit: double.tryParse(_hoursController.text) ?? 7,
-                              halfUnit: (double.tryParse(_hoursController.text) ?? 7) / 2,
-                              startDate: null, // Will be configured later or in full form
-                              endDate: null,
-                            );
-                            widget.controller.createOrganization(_nameController.text, _branchController.text, policy);
+                            widget.controller.createOrganization(_nameController.text, _branchController.text, null);
                           } : null,
                           style: FilledButton.styleFrom(backgroundColor: navy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                           child: const Text('Continue'),

@@ -19,6 +19,12 @@ class LocalFirstAttendanceRepository implements SyncQueueRepository {
 
   @override
   Future<void> save(AttendanceRecord record) async {
+    final today = DateTime.now();
+    final todayDate = DateTime(today.year, today.month, today.day);
+    if (record.date.isAfter(todayDate)) {
+      throw ArgumentError('Cannot mark attendance for future dates');
+    }
+
     final recordId = attendanceId(record.date, organizationId, scopeId);
     final enriched = record.copyWith(organizationId: organizationId, scopeId: scopeId);
     await _database.transaction(() async {

@@ -12,12 +12,16 @@ import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:standin/src/data/remote/firestore_user_remote.dart';
 import 'package:standin/src/data/remote/firestore_org_remote.dart';
+import 'package:standin/src/data/remote/firestore_attendance_remote.dart';
 
 class MockFirebaseAuth extends Mock implements auth.FirebaseAuth {}
 class MockUser extends Mock implements auth.User {}
 class MockSecureStorage extends Mock implements FlutterSecureStorage {}
+class MockAttendanceRemote extends Mock implements FirestoreAttendanceRemote {}
 
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late StandInDatabase database;
   late FakeFirebaseFirestore firestore;
   late MockFirebaseAuth mockAuth;
@@ -42,6 +46,7 @@ void main() {
       authService: AuthService(mockAuth, MockSecureStorage()),
       userRepository: userRepo,
       organizationRepository: orgRepo,
+      attendanceRemote: MockAttendanceRemote(),
     );
   });
 
@@ -68,9 +73,12 @@ void main() {
     await onboarding.followOrganization();
     expect(onboarding.step, OnboardingStep.complete);
     
-    final resolved = await orgRepo.getResolvedPolicy(uid: 'user_123', organizationId: orgId, scopeId: orgId);
-    expect(resolved?.minimumPercent, 80);
-    expect(resolved?.state, PolicyState.official);
+    final resolvedPolicy = await orgRepo.getResolvedPolicy(uid: 'user_123', organizationId: orgId, scopeId: orgId);
+    expect(resolvedPolicy?.minimumPercent, 80);
+    expect(resolvedPolicy?.state, PolicyState.official);
+
+    final resolvedCalendar = await orgRepo.getResolvedCalendar(uid: 'user_123', organizationId: orgId, scopeId: orgId);
+    expect(resolvedCalendar.isConfigured, isFalse); // Not pre-seeded in this test
   });
 
   test('Scenario E: Conflict Resolution - Personal exists, then follow Official', () async {
@@ -85,9 +93,11 @@ void main() {
     onboarding.selectPeriod(EvaluationPeriod.weekly);
     onboarding.setTarget(70.0);
     await onboarding.completeSchedule(fullUnit: 8.0);
+    onboarding.selectDaysOff([7]); // Sunday
+    onboarding.selectSaturdayOption(false); // Saturday working
     expect(onboarding.step, OnboardingStep.complete);
 
-    // 2. Official policy appears later (or is found on a re-onboarding/new follow)
+    // 2. Official policy appears later
     final officialPolicy = AttendancePolicy(
       id: 'official-p2', version: 1, effectiveFrom: DateTime.now(), 
       state: PolicyState.official, evaluationPeriod: EvaluationPeriod.monthly, 
@@ -95,17 +105,22 @@ void main() {
     );
     await orgRepo.cachePolicy(orgId, officialPolicy);
 
-    // Reset onboarding to simulate following the same org again (or a sub-scope)
-    onboarding.logout(); 
+    // Reset onboarding manually instead of logout() to avoid channel issues in unit test
+    onboarding = OnboardingController(
+      authService: AuthService(mockAuth, MockSecureStorage()),
+      userRepository: userRepo,
+      organizationRepository: orgRepo,
+      attendanceRemote: MockAttendanceRemote(),
+    );
     onboarding.start(AppRole.student);
     await onboarding.selectOrganization(const Organization(id: orgId, name: 'Conflict Org', type: OrganizationType.college));
     await onboarding.completeOrganizationId('ID-1');
 
-    // Should detect conflict because personal settings exist for this follow
+    // Should detect conflict because personal settings exist in Drift for this follow
     expect(onboarding.step, OnboardingStep.policyConflict);
 
     // 3. Choose Official
-    onboarding.useOfficialPolicy();
+    await onboarding.useOfficialPolicy();
     expect(onboarding.step, OnboardingStep.complete);
     
     final profile = await userRepo.getProfile('user_123');
@@ -115,7 +130,7 @@ void main() {
       scopeId: orgId, 
       followId: profile!.activeFollowId
     );
-    // Personal Basis should be null now or overridden by official
+    // Official should win after choice
     expect(resolved?.minimumPercent, 85);
     expect(resolved?.state, PolicyState.official);
   });
