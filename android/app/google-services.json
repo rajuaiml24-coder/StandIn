@@ -14,6 +14,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "645644256889-5mjetc3if2jg2b07b7fdldb0aadp1lke.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.withwells.standin",
+            "certificate_hash": "193442fbb9906056711ae71a43822b7eb51fce48"
+          }
+        },
+        {
+          "client_id": "645644256889-bibeuqo7b6c5tcc4i3rmh0bvtdcla1kn.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "in.withwells.standin",
+            "certificate_hash": "6bd56160a4a12e40ef3ac7ef9869a5f81ba3e062"
+          }
+        },
+        {
           "client_id": "645644256889-culke73g6lh831jcink3djfbji1k9sf8.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {

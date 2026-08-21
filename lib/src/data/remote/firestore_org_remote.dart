@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart' show kDebugMode, debugPrint;
 import '../../domain/attendance.dart';
 
 class FirestoreOrgRemote {
@@ -115,6 +116,12 @@ class FirestoreOrgRemote {
 
   Organization _mapDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final data = doc.data()!;
+    final followerCount = (data['followerCount'] as num?)?.toInt() ?? 0;
+    
+    if (kDebugMode) {
+      debugPrint('[FirestoreOrgRemote] Read followerCount: $followerCount for org: ${doc.id}');
+    }
+
     return Organization(
       id: doc.id,
       name: data['name'] as String,
@@ -122,7 +129,7 @@ class FirestoreOrgRemote {
       branch: data['branch'] as String?,
       isVerified: data['isVerified'] as bool? ?? false,
       isHolidayCalendarConfigured: data['isHolidayCalendarConfigured'] as bool? ?? false,
-      followerCount: data['followerCount'] as int? ?? 0,
+      followerCount: followerCount,
       activePolicyId: data['activePolicyId'] as String?,
       activeCalendarId: data['activeCalendarId'] as String?,
       createdBy: data['createdBy'] as String?,

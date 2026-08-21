@@ -220,6 +220,11 @@ class OnboardingController extends ChangeNotifier {
       // Initialize follower preference with organization default
       if (_officialPolicy != null) {
         _evaluationPeriod = _officialPolicy!.evaluationPeriod;
+        _basis = _officialPolicy!.basis;
+      } else {
+        // Fallback for UI pre-selection if no official policy yet (Safe defaults)
+        _evaluationPeriod = EvaluationPeriod.monthly;
+        _basis = CalculationBasis.hours;
       }
       
       _step = OnboardingStep.policyPreview;

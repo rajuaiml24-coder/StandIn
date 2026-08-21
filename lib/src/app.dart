@@ -82,6 +82,7 @@ class StandInApp extends StatefulWidget {
 class _StandInAppState extends State<StandInApp> {
   late final AuthService auth;
   UserSession? _session;
+  StandInDatabase? _guestDb;
   late OnboardingController _landingController;
   StreamSubscription<User?>? _authSubscription;
   Future<void>? _authTask;
@@ -100,15 +101,22 @@ class _StandInAppState extends State<StandInApp> {
       clientId: kIsWeb ? webClientId : null,
     );
 
-    // Minimal controller for landing page
-    _landingController = OnboardingController(
-      authService: auth,
-      userRepository: UserRepository(StandInDatabase('guest'), FirestoreUserRemote(FirebaseFirestore.instance)),
-      organizationRepository: OrganizationRepository(StandInDatabase('guest'), FirestoreOrgRemote(FirebaseFirestore.instance)),
-      attendanceRemote: FirestoreAttendanceRemote(FirebaseFirestore.instance),
-    );
+    _initGuestState();
 
     _authSubscription = FirebaseAuth.instance.authStateChanges().listen(_handleAuthState);
+  }
+
+  void _initGuestState() {
+    // Exactly one guest database instance
+    _guestDb = StandInDatabase('guest');
+    
+    // Share the same guest database across repositories
+    _landingController = OnboardingController(
+      authService: auth,
+      userRepository: UserRepository(_guestDb!, FirestoreUserRemote(FirebaseFirestore.instance)),
+      organizationRepository: OrganizationRepository(_guestDb!, FirestoreOrgRemote(FirebaseFirestore.instance)),
+      attendanceRemote: FirestoreAttendanceRemote(FirebaseFirestore.instance),
+    );
   }
 
   void _handleAuthState(User? user) {
@@ -129,14 +137,28 @@ class _StandInAppState extends State<StandInApp> {
         final oldSession = _session;
         setState(() => _session = null);
         await oldSession?.dispose();
+        
+        // Re-initialize guest state after authenticated session is fully closed
+        if (mounted) {
+          setState(() => _initGuestState());
+        }
       }
     } else {
+      // Strict UID check: Reuse existing session if UID hasn't changed
       if (_session?.uid == user.uid) return;
 
+      // Close existing authenticated session if switching accounts
       if (_session != null) {
         final oldSession = _session;
         setState(() => _session = null);
         await oldSession?.dispose();
+      }
+
+      // Close guest database before opening authenticated one
+      if (_guestDb != null) {
+        _landingController.dispose();
+        await _guestDb?.close();
+        _guestDb = null;
       }
 
       final dbName = 'standin_${user.uid}';
@@ -188,6 +210,7 @@ class _StandInAppState extends State<StandInApp> {
     _authSubscription?.cancel();
     _session?.dispose();
     _landingController.dispose();
+    _guestDb?.close();
     super.dispose(); 
   }
 
@@ -571,7 +594,7 @@ class _DashboardShellState extends State<DashboardShell> {
     ];
     return Scaffold(
       body: SafeArea(child: screens[page]),
-      floatingActionButton: page == 2 ? null : FloatingActionButton.extended(
+      floatingActionButton: (page == 1 || page == 2) ? null : FloatingActionButton.extended(
         onPressed: () => showMarkAttendance(context, widget.controller), 
         backgroundColor: orange, 
         foregroundColor: Colors.white, 
@@ -1018,32 +1041,33 @@ class _CalendarPageState extends State<CalendarPage> {
         return Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+              padding: const EdgeInsets.fromLTRB(28, 24, 28, 20),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Calendar', style: TextStyle(fontSize: 26, fontWeight: FontWeight.w800, color: navy)),
-                      TextButton(
-                        onPressed: () {
-                          _pageController.animateToPage(_initialPage, duration: const Duration(milliseconds: 400), curve: Curves.easeInOut);
-                        },
-                        child: const Text('Jump to Today', style: TextStyle(color: orange, fontWeight: FontWeight.w700)),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
                   Text(
                     '${monthName(viewMonth.month)} ${viewMonth.year}',
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: navy, letterSpacing: -0.5),
+                    style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900, color: navy, letterSpacing: -0.8),
                   ),
+                  const SizedBox(height: 4),
                   if (hasAttendance)
-                    Text('${monthlySummary.percent.toStringAsFixed(1)}% attendance', style: const TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w800, fontSize: 14))
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF16A34A).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            '${monthlySummary.percent.toStringAsFixed(1)}% attendance', 
+                            style: const TextStyle(color: Color(0xFF16A34A), fontWeight: FontWeight.w800, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    )
                   else
-                    Text(monthlySummary.periodLabel, style: const TextStyle(color: Color(0xFF98A2B3), fontWeight: FontWeight.w500, fontSize: 14)),
-                  const SizedBox(height: 20),
+                    Text(monthlySummary.periodLabel, style: const TextStyle(color: Color(0xFF98A2B3), fontWeight: FontWeight.w600, fontSize: 14)),
                 ],
               ),
             ),
@@ -1085,90 +1109,112 @@ class _MonthGrid extends StatelessWidget {
     final total = DateUtils.getDaysInMonth(viewMonth.year, viewMonth.month);
     final calendar = controller.calendar;
 
-    return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(14),
-            child: Column(
-              children: [
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _WeekdayLabel('Mon'), _WeekdayLabel('Tue'), _WeekdayLabel('Wed'),
-                    _WeekdayLabel('Thu'), _WeekdayLabel('Fri'), _WeekdayLabel('Sat'),
-                    _WeekdayLabel('Sun'),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: offset + total,
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
-                  itemBuilder: (_, index) {
-                    if (index < offset) return const SizedBox();
-                    final date = DateTime(viewMonth.year, viewMonth.month, index - offset + 1);
-                    final record = controller.recordFor(date);
-                    final isToday = DateUtils.isSameDay(date, now);
-                    final isHoliday = calendar.holidays.any((h) => DateUtils.isSameDay(h.date, date));
-                    final isWeeklyOff = !isHoliday && calendar.isNonWorkingDay(date);
-                    final isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
-
-                    return InkWell(
-                      onTap: isFuture ? null : () => showMarkAttendance(context, controller, date: date),
-                      borderRadius: BorderRadius.circular(14),
-                      child: Opacity(
-                        opacity: isFuture ? 0.4 : 1.0,
-                        child: Container(
-                          margin: const EdgeInsets.all(4),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: isToday ? Border.all(color: navy, width: 2) : null,
-                            color: record != null
-                                ? statusColor(record.status).withValues(alpha: .12)
-                                : (isHoliday ? orange.withValues(alpha: 0.1) : (isWeeklyOff ? const Color(0xFFF0F2F5) : Colors.transparent)),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text('${date.day}', style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                                color: (isHoliday || isWeeklyOff) && record == null ? const Color(0xFF98A2B3) : navy,
-                              )),
-                              if (record != null)
-                                Icon(statusIcon(record.status), color: statusColor(record.status), size: 14)
-                              else if (isHoliday)
-                                const Icon(Icons.celebration, color: orange, size: 12)
-                              else if (isWeeklyOff)
-                                const Icon(Icons.weekend, color: Color(0xFF98A2B3), size: 12),
-                            ],
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(horizontal: 24),
+      child: Column(
+        children: [
+          const Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _WeekdayLabel('Mon'), _WeekdayLabel('Tue'), _WeekdayLabel('Wed'),
+              _WeekdayLabel('Thu'), _WeekdayLabel('Fri'), _WeekdayLabel('Sat'),
+              _WeekdayLabel('Sun'),
+            ],
           ),
-        ),
-        const SizedBox(height: 18),
-        const Wrap(
-          spacing: 12,
-          runSpacing: 8,
-          children: [
-            _LegendItem(label: 'Full', icon: Icons.check_circle, color: Colors.green),
-            _LegendItem(label: 'Half', icon: Icons.timelapse, color: Color(0xFFF59E0B)),
-            _LegendItem(label: 'Absent', icon: Icons.cancel, color: Color(0xFFDC2626)),
-            _LegendItem(label: 'Holiday / Off', icon: Icons.celebration, color: Color(0xFF98A2B3)),
-          ],
-        ),
-        if (!calendar.isConfigured) _HolidayWarningCard(),
-        const SizedBox(height: 80), // Space for FAB
-      ],
+          const SizedBox(height: 12),
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: offset + total,
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 7,
+              mainAxisSpacing: 8,
+              crossAxisSpacing: 8,
+            ),
+            itemBuilder: (_, index) {
+              if (index < offset) return const SizedBox();
+              final date = DateTime(viewMonth.year, viewMonth.month, index - offset + 1);
+              final record = controller.recordFor(date);
+              final isToday = DateUtils.isSameDay(date, now);
+              final isHoliday = calendar.holidays.any((h) => DateUtils.isSameDay(h.date, date));
+              final isWeeklyOff = !isHoliday && calendar.isNonWorkingDay(date);
+              final isFuture = date.isAfter(DateTime(now.year, now.month, now.day));
+
+              final statusCol = record != null ? statusColor(record.status) : null;
+
+              return InkWell(
+                onTap: isFuture ? null : () => showMarkAttendance(context, controller, date: date),
+                borderRadius: BorderRadius.circular(16),
+                child: Opacity(
+                  opacity: isFuture ? 0.3 : 1.0,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(16),
+                      border: isToday ? Border.all(color: navy.withValues(alpha: 0.2), width: 1.5) : null,
+                      color: record != null
+                          ? statusCol!.withValues(alpha: 0.12)
+                          : (isHoliday ? orange.withValues(alpha: 0.08) : (isWeeklyOff ? const Color(0xFFF0F2F5) : Colors.transparent)),
+                    ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (isToday)
+                          Positioned(
+                            top: 6,
+                            right: 6,
+                            child: Container(
+                              width: 6,
+                              height: 6,
+                              decoration: const BoxDecoration(color: orange, shape: BoxShape.circle),
+                            ),
+                          ),
+                        Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('${date.day}', style: TextStyle(
+                              fontSize: 17,
+                              fontWeight: isToday ? FontWeight.w900 : FontWeight.w700,
+                              color: (isHoliday || isWeeklyOff) && record == null ? const Color(0xFF98A2B3) : navy,
+                            )),
+                            if (record != null)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 2),
+                                child: Icon(statusIcon(record.status), color: statusCol, size: 12),
+                              )
+                            else if (isHoliday)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 2),
+                                child: Icon(Icons.celebration, color: orange, size: 10),
+                              )
+                            else if (isWeeklyOff)
+                              const Padding(
+                                padding: EdgeInsets.only(top: 2),
+                                child: Icon(Icons.weekend, color: Color(0xFF98A2B3), size: 10),
+                              ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 28),
+          const Wrap(
+            spacing: 12,
+            runSpacing: 10,
+            children: [
+              _LegendItem(label: 'Full', icon: Icons.check_circle, color: Colors.green),
+              _LegendItem(label: 'Half', icon: Icons.timelapse, color: Color(0xFFF59E0B)),
+              _LegendItem(label: 'Absent', icon: Icons.cancel, color: Color(0xFFDC2626)),
+              _LegendItem(label: 'Holiday / Off', icon: Icons.celebration, color: Color(0xFF98A2B3)),
+            ],
+          ),
+          if (!calendar.isConfigured) _HolidayWarningCard(),
+          const SizedBox(height: 40), 
+        ],
+      ),
     );
   }
 }

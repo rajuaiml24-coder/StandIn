@@ -44,10 +44,10 @@ void main() {
     registerFallbackValue(UserProfile(uid: 'u1', displayName: 'User', role: AppRole.student));
 
     when(() => mockUserRepo.getProfile(any())).thenAnswer((_) async => null);
-    when(() => mockUserRepo.claimUsername(any(), any())).thenAnswer((_) async => true);
-    when(() => mockUserRepo.createProfile(any())).thenAnswer((_) async => {});
-    when(() => mockUserRepo.saveFollow(any(), any())).thenAnswer((_) async => {});
-    when(() => mockOrgRepo.saveMembership(any())).thenAnswer((_) async => {});
+    when(() => mockUserRepo.claimUsername(any(), any())).thenAnswer((_) async => Future.value());
+    when(() => mockUserRepo.createProfile(any())).thenAnswer((_) async => Future.value());
+    when(() => mockUserRepo.saveFollow(any(), any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.saveMembership(any())).thenAnswer((_) async => Future.value());
   });
 
   test('Student following existing college should skip branch/semester and reach Dashboard', () async {
@@ -165,7 +165,7 @@ void main() {
 
   test('New organization creator can still complete full setup with all writes', () async {
     when(() => mockAuth.uid).thenReturn('creator_1');
-    when(() => mockOrgRepo.saveOrganization(any(), any())).thenAnswer((_) async => {});
+    when(() => mockOrgRepo.saveOrganization(any(), any())).thenAnswer((_) async => Future.value());
     when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any())).thenAnswer((_) async => null);
     when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any())).thenAnswer((_) async => AttendanceCalendar.unconfigured);
     when(() => mockOrgRepo.setupOrganization(
@@ -176,7 +176,7 @@ void main() {
       follow: any(named: 'follow'),
       uid: any(named: 'uid'),
       scopes: any(named: 'scopes'),
-    )).thenAnswer((_) async => {});
+    )).thenAnswer((_) async => Future.value());
 
     controller.start(AppRole.student);
     await controller.completeProfile('Creator', null);

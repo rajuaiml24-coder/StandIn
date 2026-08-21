@@ -1,0 +1,8 @@
+- `[/]` Calendar UI/UX Refinement
+    - `[ ]` Hide "Mark Today" FAB on Calendar page in `DashboardShell`
+    - `[ ]` Update `CalendarPage` header (remove title/Jump button, add percentage)
+    - `[ ]` Refactor `_MonthGrid` (prominent dates, better "Today" highlight)
+    - `[ ]` Ensure tap interaction respects `isFuture` rule
+    - `[ ]` Verify with `flutter analyze`
+    - `[ ]` Verify with `flutter test`
+    - `[ ]` Build APK and Web for final verification

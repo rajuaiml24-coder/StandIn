@@ -49,9 +49,26 @@ class PolicyPreviewPage extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text('Created by: ${org.anonymousCreatorId}', style: const TextStyle(color: Color(0xFF667085), fontWeight: FontWeight.w600, fontSize: 14)),
-                    const SizedBox(width: 12),
-                    Text('${org.followerCount} followers', style: const TextStyle(color: orange, fontWeight: FontWeight.w800, fontSize: 14)),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0F2F5),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('Official organization', style: TextStyle(color: navy.withValues(alpha: 0.7), fontWeight: FontWeight.w700, fontSize: 11)),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    const Icon(Icons.people_alt_outlined, color: orange, size: 20),
+                    const SizedBox(width: 8),
+                    Text('${org.followerCount} ${org.followerCount == 1 ? "follower" : "followers"}', style: const TextStyle(color: navy, fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(width: 16),
+                    const Icon(Icons.person_outline, color: Color(0xFF667085), size: 18),
+                    const SizedBox(width: 4),
+                    Text('by ${org.anonymousCreatorId}', style: const TextStyle(color: Color(0xFF667085), fontWeight: FontWeight.w600, fontSize: 13)),
                   ],
                 ),
                 const SizedBox(height: 32),

@@ -44,11 +44,11 @@ void main() {
     registerFallbackValue(UserProfile(uid: 'u1', displayName: 'User', role: AppRole.student));
 
     when(() => mockUserRepo.getProfile(any())).thenAnswer((_) async => null);
-    when(() => mockUserRepo.claimUsername(any(), any())).thenAnswer((_) async => true);
-    when(() => mockUserRepo.createProfile(any())).thenAnswer((_) async => {});
-    when(() => mockUserRepo.saveFollow(any(), any())).thenAnswer((_) async => {});
-    when(() => mockOrgRepo.saveMembership(any())).thenAnswer((_) async => {});
-    when(() => mockOrgRepo.saveOrganization(any(), any())).thenAnswer((_) async => {});
+    when(() => mockUserRepo.claimUsername(any(), any())).thenAnswer((_) async => Future.value());
+    when(() => mockUserRepo.createProfile(any())).thenAnswer((_) async => Future.value());
+    when(() => mockUserRepo.saveFollow(any(), any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.saveMembership(any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.saveOrganization(any(), any())).thenAnswer((_) async => Future.value());
   });
 
   test('Follower Flow: skip all setup and shared writes if policy exists', () async {
@@ -60,7 +60,7 @@ void main() {
     final calendar = AttendanceCalendar(id: 'cal-global', version: 1, effectiveFrom: DateTime.now(), weeklyOffs: [7]);
 
     when(() => mockAuth.uid).thenReturn('user_follower');
-    when(() => mockOrgRepo.getOfficialPolicyForScope('org1', 'global')).thenAnswer((_) async => policy);
+    when(() => mockOrgRepo.getOfficialPolicyForScope('org1', 'global', activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => policy);
     when(() => mockOrgRepo.getOfficialCalendarForScope('org1', 'global')).thenAnswer((_) async => calendar);
 
     controller.start(AppRole.student);
@@ -89,7 +89,7 @@ void main() {
 
   test('Creator Flow: performs all 5 writes and sets creator as member #1', () async {
     when(() => mockAuth.uid).thenReturn('user_creator');
-    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any())).thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any(), activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => null);
     when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any())).thenAnswer((_) async => AttendanceCalendar.unconfigured);
     when(() => mockOrgRepo.setupOrganization(
       org: any(named: 'org'),
@@ -99,7 +99,7 @@ void main() {
       follow: any(named: 'follow'),
       uid: any(named: 'uid'),
       scopes: any(named: 'scopes'),
-    )).thenAnswer((_) async => {});
+    )).thenAnswer((_) async => Future.value());
 
     controller.start(AppRole.student);
     await controller.completeProfile('Creator', null);
@@ -136,7 +136,7 @@ void main() {
     final org = const Organization(id: 'org2', name: 'Legacy Org', type: OrganizationType.college);
 
     when(() => mockAuth.uid).thenReturn('user_test');
-    when(() => mockOrgRepo.getOfficialPolicyForScope('org2', 'global')).thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialPolicyForScope('org2', 'global', activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => null);
     when(() => mockOrgRepo.getOfficialCalendarForScope('org2', 'global')).thenAnswer((_) async => AttendanceCalendar.unconfigured);
 
     controller.start(AppRole.student);

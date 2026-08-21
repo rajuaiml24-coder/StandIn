@@ -103,7 +103,10 @@ class _OrganizationSearchPageState extends State<OrganizationSearchPage> {
                           if (org.isVerified) ...[const SizedBox(width: 6), const Icon(Icons.verified, color: Colors.blue, size: 16)],
                         ],
                       ),
-                      subtitle: Text('${org.branch ?? ''} • ${org.anonymousCreatorId} • ${org.followerCount} followers', style: const TextStyle(color: Color(0xFF667085))),
+                      subtitle: Text(
+                        '${org.branch != null && org.branch!.isNotEmpty ? "${org.branch} • " : ""}${org.followerCount} ${org.followerCount == 1 ? "follower" : "followers"}', 
+                        style: const TextStyle(color: Color(0xFF667085)),
+                      ),
                       trailing: const Icon(Icons.chevron_right, color: navy),
                       onTap: () {
                         widget.controller.selectOrganization(org);

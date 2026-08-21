@@ -84,6 +84,9 @@ class SyncEngine {
               name: json['name'] as String,
               type: OrganizationType.values.byName(json['type'] as String),
               branch: json['branch'] as String?,
+              isVerified: json['isVerified'] as bool? ?? false,
+              isHolidayCalendarConfigured: json['isHolidayCalendarConfigured'] as bool? ?? false,
+              followerCount: (json['followerCount'] as num?)?.toInt() ?? 0,
               activePolicyId: json['activePolicyId'] as String?,
               activeCalendarId: json['activeCalendarId'] as String?,
             );
