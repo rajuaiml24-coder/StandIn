@@ -20,7 +20,6 @@ enum OnboardingStep {
   policyDetection,
   policyPreview,
   policyConflict,
-  policyMissing,
   setupUnit,
   setupPeriod,
   setupTarget,
@@ -217,17 +216,27 @@ class OnboardingController extends ChangeNotifier {
         activeCalendarId: org.activeCalendarId,
       );
       
-      // Initialize follower preference with organization default
       if (_officialPolicy != null) {
         _evaluationPeriod = _officialPolicy!.evaluationPeriod;
         _basis = _officialPolicy!.basis;
       } else {
-        // Fallback for UI pre-selection if no official policy yet (Safe defaults)
+        // Fallback for UI pre-selection if no organization rules yet (Safe defaults)
         _evaluationPeriod = EvaluationPeriod.monthly;
         _basis = CalculationBasis.hours;
       }
       
-      _step = OnboardingStep.policyPreview;
+      // Check for conflict (Existing personal override)
+      final resolved = await _organizationRepository.getResolvedPolicy(
+        uid: _authService.uid ?? 'unknown', 
+        organizationId: org.id, 
+        scopeId: 'global',
+      );
+
+      if (resolved?.state == PolicyState.personal) {
+        _step = OnboardingStep.policyConflict;
+      } else {
+        _step = OnboardingStep.policyPreview;
+      }
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -546,9 +555,17 @@ class OnboardingController extends ChangeNotifier {
         );
       } else {
         // Simple join for the FOLLOWER (Path: Search -> Select -> Preview -> Follow)
-        // This ONLY writes to user subcollections and the member collection.
-        // It NEVER calls setupOrganization() or writes to shared config.
-        await _userRepository.saveFollow(uid, follow);
+        // 1. Ensure authoritative metadata (activePolicyId) is cached locally for resolution
+        await _organizationRepository.saveOrganizationMetadata(_selectedOrganization!);
+
+        // 2. Resolve final Follow record with smart overrides
+        // Only set personal overrides if the user actually changed them from organization defaults
+        final effectiveFollow = follow.copyWith(
+          personalBasis: _basis == _officialPolicy?.basis ? null : _basis,
+          personalEvaluationPeriod: _evaluationPeriod == _officialPolicy?.evaluationPeriod ? null : _evaluationPeriod,
+        );
+
+        await _userRepository.saveFollow(uid, effectiveFollow);
         await _organizationRepository.saveMembership(membership);
         await _organizationRepository.incrementFollowerCount(_selectedOrganization!.id);
       }
@@ -581,14 +598,11 @@ class OnboardingController extends ChangeNotifier {
       case OnboardingStep.organizationCreate:
         _step = OnboardingStep.organizationSearch;
         break;
-      case OnboardingStep.policyMissing:
-        _step = OnboardingStep.organizationSearch;
-        break;
       case OnboardingStep.policyPreview:
         _step = _isCreatingNewOrganization ? OnboardingStep.organizationCreate : OnboardingStep.organizationSearch;
         break;
       case OnboardingStep.setupUnit:
-        _step = _isCreatingNewOrganization ? OnboardingStep.organizationCreate : OnboardingStep.policyMissing;
+        _step = OnboardingStep.organizationCreate;
         break;
       case OnboardingStep.setupPeriod:
         _step = OnboardingStep.setupUnit;

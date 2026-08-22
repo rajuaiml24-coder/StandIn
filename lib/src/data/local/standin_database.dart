@@ -175,6 +175,9 @@ class StandInDatabase extends _$StandInDatabase {
   Future<void> saveCalendar(CalendarRowsCompanion row) =>
       into(calendarRows).insertOnConflictUpdate(row);
 
+  Future<CalendarRow?> getCalendarById(String id) =>
+      (select(calendarRows)..where((row) => row.id.equals(id))).getSingleOrNull();
+
   Future<CalendarRow?> calendarAt(String organizationId, String scopeId, DateTime date) =>
       (select(calendarRows)..where((row) => 
         row.organizationId.equals(organizationId) & 
@@ -188,6 +191,9 @@ class StandInDatabase extends _$StandInDatabase {
         row.scopeId.equals(scopeId) &
         row.effectiveFrom.isSmallerOrEqualValue(date)
       )..orderBy([(row) => OrderingTerm.desc(row.effectiveFrom)])..limit(1)).getSingleOrNull();
+
+  Future<OrganizationPolicyRow?> getPolicyById(String id) =>
+      (select(organizationPolicyRows)..where((row) => row.policyId.equals(id))).getSingleOrNull();
 
   Future<OrganizationRow?> getOrganization(String id) =>
       (select(organizationRows)..where((row) => row.id.equals(id))).getSingleOrNull();

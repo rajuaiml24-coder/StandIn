@@ -19,6 +19,7 @@ void main() {
     mockRemote = MockFirestoreOrgRemote();
     repository = OrganizationRepository(database, mockRemote);
     when(() => mockRemote.getPolicy(any(), any())).thenAnswer((_) async => null);
+    when(() => mockRemote.getOrganization(any())).thenAnswer((_) async => null);
   });
 
   tearDown(() async {

@@ -48,6 +48,15 @@ void main() {
     when(() => mockUserRepo.createProfile(any())).thenAnswer((_) async => Future.value());
     when(() => mockUserRepo.saveFollow(any(), any())).thenAnswer((_) async => Future.value());
     when(() => mockOrgRepo.saveMembership(any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.saveOrganizationMetadata(any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.incrementFollowerCount(any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.getResolvedPolicy(
+      uid: any(named: 'uid'), 
+      organizationId: any(named: 'organizationId'), 
+      scopeId: any(named: 'scopeId'),
+    )).thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any(), activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any())).thenAnswer((_) async => AttendanceCalendar.unconfigured);
   });
 
   test('Student following existing college should skip branch/semester and reach Dashboard', () async {
@@ -59,7 +68,7 @@ void main() {
     final calendar = AttendanceCalendar(id: 'cal-global', version: 1, effectiveFrom: DateTime.now(), weeklyOffs: [7]);
 
     when(() => mockAuth.uid).thenReturn('user_b');
-    when(() => mockOrgRepo.getOfficialPolicyForScope('org1', 'global')).thenAnswer((_) async => policy);
+    when(() => mockOrgRepo.getOfficialPolicyForScope('org1', 'global', activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => policy);
     when(() => mockOrgRepo.getOfficialCalendarForScope('org1', 'global')).thenAnswer((_) async => calendar);
 
     // 0. Start and Profile
@@ -96,11 +105,11 @@ void main() {
     verify(() => mockOrgRepo.saveMembership(any())).called(1);
   });
 
-  test('Existing org without official policy should allow personal setup without shared writes', () async {
+  test('Existing org without official policy should show Preview and allow direct follow', () async {
     final org = const Organization(id: 'org2', name: 'Legacy College', type: OrganizationType.college);
 
     when(() => mockAuth.uid).thenReturn('user_c');
-    when(() => mockOrgRepo.getOfficialPolicyForScope('org2', 'global')).thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialPolicyForScope('org2', 'global', activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => null);
     when(() => mockOrgRepo.getOfficialCalendarForScope('org2', 'global')).thenAnswer((_) async => AttendanceCalendar.unconfigured);
 
     // 0. Start and Profile
@@ -110,7 +119,15 @@ void main() {
     // 1. Select Organization
     await controller.selectOrganization(org);
     
-    // Should be at Setup Unit (Personal)
+    // Should be at Policy Preview (Inheriting defaults)
+    expect(controller.step, OnboardingStep.policyPreview);
+
+    // 2. Follow
+    await controller.useOfficialPolicy();
+    expect(controller.step, OnboardingStep.complete);
+
+    // Choosing personal settings
+    await controller.followWithPersonalSettings();
     expect(controller.step, OnboardingStep.setupUnit);
 
     // Complete personal setup

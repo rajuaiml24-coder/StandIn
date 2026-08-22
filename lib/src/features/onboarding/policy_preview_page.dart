@@ -18,7 +18,7 @@ class PolicyPreviewPage extends StatelessWidget {
         final calendar = controller.officialCalendar;
 
         // Effective rules to display (Inherited from org if available, otherwise defaults)
-        final effectiveTarget = officialPolicy?.minimumPercent ?? 85.0;
+        final effectiveTarget = officialPolicy?.minimumPercent;
         final effectiveBasis = officialPolicy?.basis ?? CalculationBasis.hours;
         final effectiveFullUnit = officialPolicy?.fullUnit ?? 8.0;
         final effectiveStartDate = officialPolicy?.startDate;
@@ -46,19 +46,6 @@ class PolicyPreviewPage extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(org.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: navy)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF0F2F5),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text('Official organization', style: TextStyle(color: navy.withValues(alpha: 0.7), fontWeight: FontWeight.w700, fontSize: 11)),
-                    ),
-                  ],
-                ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -83,8 +70,10 @@ class PolicyPreviewPage extends StatelessWidget {
                   ),
                   child: Column(
                     children: [
-                      _PolicyRow(label: 'Target', value: '${effectiveTarget.toStringAsFixed(0)}%'),
-                      const Divider(height: 32),
+                      if (effectiveTarget != null) ...[
+                        _PolicyRow(label: 'Target', value: '${effectiveTarget.toStringAsFixed(0)}%'),
+                        const Divider(height: 32),
+                      ],
                       _PolicyRow(label: 'Calculation basis', value: effectiveBasis.name.toUpperCase()),
                       const Divider(height: 32),
                       _PolicyRow(label: 'Working days', value: _getWorkingDays(officialPolicy, calendar)),

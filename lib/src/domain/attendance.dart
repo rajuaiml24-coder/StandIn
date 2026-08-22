@@ -258,6 +258,42 @@ class Follow {
   final bool isPersonalCalendarConfigured;
 
   bool get hasPersonalSettings => personalBasis != null;
+
+  Follow copyWith({
+    String? id,
+    String? organizationId,
+    String? scopeId,
+    double? personalTargetPercent,
+    String? status,
+    DateTime? followedAt,
+    CalculationBasis? personalBasis,
+    EvaluationPeriod? personalEvaluationPeriod,
+    double? personalFullUnit,
+    double? personalHalfUnit,
+    DateTime? personalStartDate,
+    DateTime? personalEndDate,
+    String? personalWeeklyOffs,
+    String? personalOffSaturdays,
+    String? personalHolidays,
+    bool? isPersonalCalendarConfigured,
+  }) => Follow(
+    id: id ?? this.id,
+    organizationId: organizationId ?? this.organizationId,
+    scopeId: scopeId ?? this.scopeId,
+    personalTargetPercent: personalTargetPercent ?? this.personalTargetPercent,
+    status: status ?? this.status,
+    followedAt: followedAt ?? this.followedAt,
+    personalBasis: personalBasis ?? this.personalBasis,
+    personalEvaluationPeriod: personalEvaluationPeriod ?? this.personalEvaluationPeriod,
+    personalFullUnit: personalFullUnit ?? this.personalFullUnit,
+    personalHalfUnit: personalHalfUnit ?? this.personalHalfUnit,
+    personalStartDate: personalStartDate ?? this.personalStartDate,
+    personalEndDate: personalEndDate ?? this.personalEndDate,
+    personalWeeklyOffs: personalWeeklyOffs ?? this.personalWeeklyOffs,
+    personalOffSaturdays: personalOffSaturdays ?? this.personalOffSaturdays,
+    personalHolidays: personalHolidays ?? this.personalHolidays,
+    isPersonalCalendarConfigured: isPersonalCalendarConfigured ?? this.isPersonalCalendarConfigured,
+  );
 }
 
 class Membership {

@@ -1,8 +1,9 @@
-- `[/]` Calendar UI/UX Refinement
-    - `[ ]` Hide "Mark Today" FAB on Calendar page in `DashboardShell`
-    - `[ ]` Update `CalendarPage` header (remove title/Jump button, add percentage)
-    - `[ ]` Refactor `_MonthGrid` (prominent dates, better "Today" highlight)
-    - `[ ]` Ensure tap interaction respects `isFuture` rule
+- `[/]` Proper Organization Rules & Follower Flow Restoration
+    - `[ ]` Decouple Target % from policy completeness in `PolicyEngine`
+    - `[ ]` Remove `OnboardingStep.policyMissing` and redirect logic in `OnboardingController`
+    - `[ ]` Redesign `PolicyPreviewPage` (Neutral terms, authoritative rules, pre-selection)
+    - `[ ]` Update `app.dart` (Remove `policyMissing` screen and incomplete warning card)
+    - `[ ]` Update `PolicyConflictPage` terminology
+    - `[ ]` Delete `policy_missing_page.dart`
     - `[ ]` Verify with `flutter analyze`
-    - `[ ]` Verify with `flutter test`
-    - `[ ]` Build APK and Web for final verification
+    - `[ ]` Verify with `flutter test` (Target 81/81)

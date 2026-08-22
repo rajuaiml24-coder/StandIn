@@ -11,6 +11,7 @@ class ManualMockOrgRemote implements FirestoreOrgRemote {
   @override Future<AttendancePolicy?> getPolicy(String orgId, String policyId) async => null;
   @override Future<void> putMembership(Membership membership) async {}
   @override Future<void> putOrganization(Organization org, String uid) async {}
+  @override Future<Organization?> getOrganization(String orgId) async => null;
 }
 
 void main() {

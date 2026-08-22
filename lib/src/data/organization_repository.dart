@@ -45,6 +45,22 @@ class OrganizationRepository {
     }
   }
 
+  Future<void> saveOrganizationMetadata(Organization org) async {
+    await _database.upsertOrganization(OrganizationRowsCompanion.insert(
+      id: org.id,
+      name: org.name,
+      type: org.type.name,
+      branch: Value(org.branch),
+      isVerified: Value(org.isVerified),
+      isHolidayCalendarConfigured: Value(org.isHolidayCalendarConfigured),
+      followerCount: Value(org.followerCount),
+      activePolicyId: Value(org.activePolicyId),
+      activeCalendarId: Value(org.activeCalendarId),
+      createdBy: Value(org.createdBy),
+      updatedAt: DateTime.now(),
+    ));
+  }
+
   Future<void> saveOrganization(Organization org, String uid) async {
     await _database.transaction(() async {
       await _database.upsertOrganization(OrganizationRowsCompanion.insert(
@@ -364,12 +380,37 @@ class OrganizationRepository {
     required String scopeId,
     String? followId,
   }) async {
+    // 0. Fetch authoritative metadata
+    final localOrg = await _database.getOrganization(organizationId);
+    String? authoritativePolicyId = localOrg?.activePolicyId;
+    
+    // 0b. Critical Fallback: Remote fetch if local metadata is missing (ensure activePolicyId is known)
+    if (localOrg == null) {
+      final remoteOrg = await _remote.getOrganization(organizationId);
+      if (remoteOrg != null) {
+        await saveOrganizationMetadata(remoteOrg);
+        authoritativePolicyId = remoteOrg.activePolicyId;
+      }
+    }
+
     // 1. Resolve Official Hierarchy
-    var policy = await _getPolicyHierarchy(organizationId, scopeId);
+    var policy = await _getPolicyHierarchy(organizationId, scopeId, activePolicyId: authoritativePolicyId);
 
     // 2. Apply Personal Overrides
-    if (followId != null) {
-      final follow = await _database.getFollow(followId);
+    // If followId is null, try to find the user's current active follow for this organization
+    String? effectiveFollowId = followId;
+    if (effectiveFollowId == null) {
+      final profile = await _database.getUserProfile(uid);
+      if (profile?.activeFollowId != null) {
+        final follow = await _database.getFollow(profile!.activeFollowId!);
+        if (follow?.organizationId == organizationId) {
+          effectiveFollowId = profile.activeFollowId;
+        }
+      }
+    }
+
+    if (effectiveFollowId != null) {
+      final follow = await _database.getFollow(effectiveFollowId);
       if (follow != null && (follow.personalBasis != null || follow.personalTargetPercent != null || follow.personalEvaluationPeriod != null)) {
         policy = (policy ?? AttendancePolicy(
           id: 'personal-${follow.id}',
@@ -430,12 +471,19 @@ class OrganizationRepository {
   }
 
   Future<AttendancePolicy?> _getCachedOrRemotePolicy(String orgId, String scopeId, {String? explicitId}) async {
+    // 1. Authoritative Lookup by ID (Bypasses timestamp comparison)
+    if (explicitId != null) {
+      final authoritative = await _database.getPolicyById(explicitId);
+      if (authoritative != null) return _toPolicy(authoritative);
+    }
+
+    // 2. Historical Lookup by Effective Date
     final cached = await _database.policyAt(orgId, scopeId, DateTime.now());
     if (cached != null) {
       return _toPolicy(cached);
     }
     
-    // Remote fetch (only if local missing or scopeId mismatch)
+    // 3. Remote fetch (using authoritative ID if available)
     final policyId = explicitId ?? (scopeId == 'global' ? 'policy-global' : 'scope-$scopeId'); 
     final remote = await _remote.getPolicy(orgId, policyId);
     if (remote != null) {
@@ -489,6 +537,9 @@ class OrganizationRepository {
     required String scopeId,
     String? followId,
   }) async {
+    // 0. Fetch authoritative metadata
+    final org = await _database.getOrganization(organizationId);
+
     // 1. Check Personal Configuration (stored in Follow)
     if (followId != null) {
       final follow = await _database.getFollow(followId);
@@ -517,7 +568,7 @@ class OrganizationRepository {
       }
     }
 
-    return _getCalendarHierarchy(organizationId, scopeId);
+    return _getCalendarHierarchy(organizationId, scopeId, activeCalendarId: org?.activeCalendarId);
   }
 
   Future<AttendanceCalendar> getOfficialCalendarForScope(String orgId, String scopeId, {String? activeCalendarId}) async {
@@ -547,12 +598,19 @@ class OrganizationRepository {
   }
 
   Future<AttendanceCalendar?> _getCachedOrRemoteCalendar(String orgId, String scopeId, {String? explicitId}) async {
+    // 1. Authoritative Lookup by ID
+    if (explicitId != null) {
+      final authoritative = await _database.getCalendarById(explicitId);
+      if (authoritative != null) return _toCalendar(authoritative);
+    }
+
+    // 2. Historical Lookup
     final cached = await _database.calendarAt(orgId, scopeId, DateTime.now());
     if (cached != null) {
       return _toCalendar(cached);
     }
 
-    // Remote fetch
+    // 3. Remote fetch
     final calendarId = explicitId ?? (scopeId == 'global' ? 'cal-global' : 'cal-$scopeId');
     final remote = await _remote.getCalendar(orgId, calendarId);
     if (remote != null) {
@@ -632,10 +690,12 @@ class OrganizationRepository {
     }
 
     // 4. Resolve Organization Global rules as fallback
-    final orgRules = await _remote.getPolicy(follow.organizationId, 'policy-global');
+    final globalPolicyId = org?.activePolicyId ?? 'policy-global';
+    final orgRules = await _remote.getPolicy(follow.organizationId, globalPolicyId);
     if (orgRules != null) await cachePolicy(follow.organizationId, orgRules);
     
-    final orgCal = await _remote.getCalendar(follow.organizationId, 'cal-global');
+    final globalCalId = org?.activeCalendarId ?? 'cal-global';
+    final orgCal = await _remote.getCalendar(follow.organizationId, globalCalId);
     if (orgCal != null) await saveCalendar(follow.organizationId, orgCal);
   }
 

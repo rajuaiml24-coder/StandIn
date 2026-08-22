@@ -47,8 +47,17 @@ void main() {
     when(() => mockUserRepo.claimUsername(any(), any())).thenAnswer((_) async => Future.value());
     when(() => mockUserRepo.createProfile(any())).thenAnswer((_) async => Future.value());
     when(() => mockUserRepo.saveFollow(any(), any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any(), activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any())).thenAnswer((_) async => AttendanceCalendar.unconfigured);
     when(() => mockOrgRepo.saveMembership(any())).thenAnswer((_) async => Future.value());
     when(() => mockOrgRepo.saveOrganization(any(), any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.saveOrganizationMetadata(any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.incrementFollowerCount(any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.getResolvedPolicy(
+      uid: any(named: 'uid'), 
+      organizationId: any(named: 'organizationId'), 
+      scopeId: any(named: 'scopeId'),
+    )).thenAnswer((_) async => null);
   });
 
   test('Follower Flow: skip all setup and shared writes if policy exists', () async {
@@ -132,7 +141,7 @@ void main() {
     )).called(1);
   });
 
-  test('Existing org without policy shows Safe Choice (policyMissing)', () async {
+  test('Existing org without policy shows Organization Rules (Preview)', () async {
     final org = const Organization(id: 'org2', name: 'Legacy Org', type: OrganizationType.college);
 
     when(() => mockAuth.uid).thenReturn('user_test');
@@ -142,11 +151,11 @@ void main() {
     controller.start(AppRole.student);
     await controller.selectOrganization(org);
     
-    expect(controller.step, OnboardingStep.policyMissing);
+    expect(controller.step, OnboardingStep.policyPreview);
 
-    // Choosing personal settings
-    await controller.followWithPersonalSettings();
-    expect(controller.step, OnboardingStep.setupUnit);
+    // Follow -> Skip ID entry if not needed
+    await controller.useOfficialPolicy();
+    expect(controller.step, OnboardingStep.complete);
     
     // Complete personal setup...
     controller.selectBasis(CalculationBasis.days);

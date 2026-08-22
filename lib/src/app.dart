@@ -20,7 +20,6 @@ import 'features/onboarding/organization_create_page.dart';
 import 'features/onboarding/organization_id_page.dart';
 import 'features/onboarding/organization_search_page.dart';
 import 'features/onboarding/policy_preview_page.dart';
-import 'features/onboarding/policy_missing_page.dart';
 import 'features/onboarding/policy_conflict_page.dart';
 import 'features/onboarding/policy_setup_basis_page.dart';
 import 'features/onboarding/policy_setup_period_page.dart';
@@ -326,7 +325,6 @@ class _StandInAppState extends State<StandInApp> {
       case OnboardingStep.organizationId: return OrganizationIdPage(controller: controller);
       case OnboardingStep.policyDetection: return const Scaffold(body: Center(child: CircularProgressIndicator()));
       case OnboardingStep.policyPreview: return PolicyPreviewPage(controller: controller);
-      case OnboardingStep.policyMissing: return PolicyMissingPage(controller: controller);
       case OnboardingStep.policyConflict: return PolicyConflictPage(controller: controller);
       case OnboardingStep.setupUnit: return PolicySetupBasisPage(controller: controller);
       case OnboardingStep.setupPeriod: return PolicySetupPeriodPage(controller: controller);
@@ -701,9 +699,7 @@ class _HomePageState extends State<HomePage> {
               const SizedBox(height: 12),
               if (summary.needsAttention)
                 _AttentionRequiredCard(count: summary.unmarkedCount, onTap: widget.onNavigateToCalendar),
-              if (summary.isPolicyIncomplete)
-                _PolicyIncompleteCard(onTap: () {})
-              else
+              if (!summary.isPolicyIncomplete)
                 AdviceCard(summary: summary, policy: widget.controller.policy),
               const SizedBox(height: 24),
               Row(
@@ -754,22 +750,6 @@ class _AttentionRequiredCard extends StatelessWidget {
         ],
       )),
       TextButton(onPressed: onTap, child: const Text('Review'))
-    ]),
-  );
-}
-
-class _PolicyIncompleteCard extends StatelessWidget {
-  const _PolicyIncompleteCard({required this.onTap});
-  final VoidCallback onTap;
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.all(20), 
-    decoration: BoxDecoration(color: const Color(0xFFF6F7FB), borderRadius: BorderRadius.circular(24)),
-    child: Row(children: [
-      const Icon(Icons.help_outline_rounded, color: Color(0xFF667085)),
-      const SizedBox(width: 16),
-      const Expanded(child: Text('Attendance rules incomplete. Some calculations are hidden.', style: TextStyle(color: Color(0xFF667085), fontSize: 13))),
-      TextButton(onPressed: onTap, child: const Text('Configure'))
     ]),
   );
 }

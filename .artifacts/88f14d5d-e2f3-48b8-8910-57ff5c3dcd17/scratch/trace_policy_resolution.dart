@@ -36,7 +36,16 @@ void main() {
     );
     await repo.cachePolicy(orgId, officialPolicy);
 
-    // 2. Seed Follow record (simulating followOrganization)
+    // Seed Org metadata (simulating saveOrganizationMetadata)
+    await db.upsertOrganization(OrganizationRowsCompanion.insert(
+      id: orgId,
+      name: 'Org 1',
+      type: OrganizationType.college.name,
+      activePolicyId: Value(policyId),
+      updatedAt: DateTime.now(),
+    ));
+
+    // 2. Seed Follow record (simulating followOrganization with NULL overrides)
     final followId = 'f1';
     await db.upsertFollow(FollowRowsCompanion.insert(
       id: followId,
@@ -44,9 +53,9 @@ void main() {
       scopeId: 'global',
       status: 'active',
       followedAt: DateTime.now(),
-      // Follower flow currently sets personalEvaluationPeriod but NOT personalTargetPercent
-      personalEvaluationPeriod: Value(EvaluationPeriod.semester.name),
-      personalBasis: Value(CalculationBasis.hours.name),
+      // Follower flow now sets NULL if using official defaults
+      personalEvaluationPeriod: const Value(null),
+      personalBasis: const Value(null),
       personalTargetPercent: const Value(null),
       isPersonalCalendarConfigured: const Value(false),
     ));
