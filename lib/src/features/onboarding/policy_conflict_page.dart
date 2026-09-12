@@ -29,7 +29,7 @@ class PolicyConflictPage extends StatelessWidget {
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'We found official rules. Would you like to use them or keep your personal settings?',
+                      'We found organization rules. Would you like to use them or keep your personal settings?',
                       textAlign: TextAlign.center,
                       style: TextStyle(fontSize: 15, color: Color(0xFF667085)),
                     ),
@@ -48,7 +48,7 @@ class PolicyConflictPage extends StatelessWidget {
                         style: FilledButton.styleFrom(backgroundColor: navy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
                         child: controller.isLoading 
                           ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                          : const Text('Use Official Rules', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                          : const Text('Use Organization Rules', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
                       ),
                     ),
                     const SizedBox(height: 16),

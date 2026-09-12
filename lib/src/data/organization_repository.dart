@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show debugPrint;
 import '../domain/attendance.dart';
 import 'local/standin_database.dart';
 import 'remote/firestore_org_remote.dart';
@@ -84,6 +85,8 @@ class OrganizationRepository {
           'name': org.name,
           'type': org.type.name,
           'branch': org.branch,
+          'isVerified': org.isVerified,
+          'isHolidayCalendarConfigured': org.isHolidayCalendarConfigured,
           'followerCount': org.followerCount,
           'activePolicyId': org.activePolicyId,
           'activeCalendarId': org.activeCalendarId,
@@ -255,6 +258,8 @@ class OrganizationRepository {
           'name': org.name,
           'type': org.type.name,
           'branch': org.branch,
+          'isVerified': org.isVerified,
+          'isHolidayCalendarConfigured': org.isHolidayCalendarConfigured,
           'followerCount': 1,
           'activePolicyId': policy.id,
           'activeCalendarId': calendar.id,
@@ -719,6 +724,51 @@ class OrganizationRepository {
     );
   }
 
+  Future<Organization?> getOrganization(String id, {bool forceRemote = false, bool reconcile = false}) async {
+    if (reconcile) {
+      await reconcileFollowerCount(id);
+      forceRemote = true; // Always fetch fresh data after reconciliation
+    }
+
+    if (!forceRemote) {
+      final local = await _database.getOrganization(id);
+      if (local != null) return _toOrganization(local);
+    }
+
+    final remote = await _remote.getOrganization(id);
+    if (remote != null) {
+      await saveOrganizationMetadata(remote);
+    }
+    return remote;
+  }
+
+  Future<void> reconcileFollowerCount(String orgId) async {
+    try {
+      final authoritativeCount = await _remote.getAuthoritativeMemberCount(orgId);
+      final remoteOrg = await _remote.getOrganization(orgId);
+      
+      if (remoteOrg != null && remoteOrg.followerCount != authoritativeCount) {
+        debugPrint('[OrganizationRepository] Reconciling count for $orgId: ${remoteOrg.followerCount} -> $authoritativeCount');
+        await _remote.updateFollowerCount(orgId, authoritativeCount);
+      }
+    } catch (e) {
+      debugPrint('[OrganizationRepository] Reconciliation failed for $orgId: $e');
+    }
+  }
+
+  Organization _toOrganization(OrganizationRow row) => Organization(
+    id: row.id,
+    name: row.name,
+    type: OrganizationType.values.byName(row.type),
+    branch: row.branch,
+    isVerified: row.isVerified,
+    isHolidayCalendarConfigured: row.isHolidayCalendarConfigured,
+    followerCount: row.followerCount,
+    activePolicyId: row.activePolicyId,
+    activeCalendarId: row.activeCalendarId,
+    createdBy: row.createdBy,
+  );
+
   Future<void> saveMembership(Membership membership) async {
     await _database.transaction(() async {
       await _database.upsertMembership(MembershipRowsCompanion.insert(
@@ -732,7 +782,7 @@ class OrganizationRepository {
 
       await _database.enqueue(SyncQueueRowsCompanion.insert(
         id: 'membership:${membership.uid}:${membership.organizationId}',
-        operation: 'putMembership',
+        operation: 'joinOrganizationAtomic', // Updated to use atomic operation
         entityId: '${membership.uid}:${membership.organizationId}',
         payload: jsonEncode({
           'uid': membership.uid,
@@ -746,6 +796,24 @@ class OrganizationRepository {
         createdAt: DateTime.now(),
       ));
     });
+  }
+
+  Future<void> joinOrganizationAtomic(Membership membership) async {
+    // 1. Remote Atomic Transaction (Idempotent)
+    await _remote.joinOrganizationAtomic(
+      orgId: membership.organizationId,
+      membership: membership,
+    );
+
+    // 2. Local State Update
+    await _database.upsertMembership(MembershipRowsCompanion.insert(
+      uid: membership.uid,
+      organizationId: membership.organizationId,
+      status: membership.status,
+      idNumber: Value(membership.idNumber),
+      joinedAt: membership.joinedAt,
+      verifiedAt: Value(membership.verifiedAt),
+    ));
   }
 
   Future<void> saveCalendar(String orgId, AttendanceCalendar calendar) async {
@@ -768,7 +836,7 @@ class OrganizationRepository {
   }
 
   Future<void> removeMembership(String orgId, String uid) async {
-    await _remote.deleteMembership(orgId, uid);
+    await _remote.leaveOrganizationAtomic(orgId: orgId, uid: uid);
     // Also remove locally
     await (_database.delete(_database.membershipRows)..where((row) => row.uid.equals(uid) & row.organizationId.equals(orgId))).go();
   }

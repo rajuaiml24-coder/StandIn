@@ -171,6 +171,64 @@ class FirestoreOrgRemote {
         'verifiedAt': membership.verifiedAt != null ? Timestamp.fromDate(membership.verifiedAt!) : null,
       });
 
+  Future<void> joinOrganizationAtomic({
+    required String orgId,
+    required Membership membership,
+  }) {
+    return _firestore.runTransaction((transaction) async {
+      final memberRef = _firestore.collection('organizations').doc(orgId).collection('members').doc(membership.uid);
+      final orgRef = _firestore.collection('organizations').doc(orgId);
+
+      final memberSnapshot = await transaction.get(memberRef);
+
+      if (!memberSnapshot.exists) {
+        transaction.set(memberRef, {
+          'status': membership.status,
+          'idNumber': membership.idNumber,
+          'joinedAt': Timestamp.fromDate(membership.joinedAt),
+          'verifiedAt': membership.verifiedAt != null ? Timestamp.fromDate(membership.verifiedAt!) : null,
+        });
+
+        transaction.update(orgRef, {
+          'followerCount': FieldValue.increment(1),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+  }
+
+  Future<void> leaveOrganizationAtomic({
+    required String orgId, 
+    required String uid,
+  }) {
+    return _firestore.runTransaction((transaction) async {
+      final memberRef = _firestore.collection('organizations').doc(orgId).collection('members').doc(uid);
+      final orgRef = _firestore.collection('organizations').doc(orgId);
+
+      final memberSnapshot = await transaction.get(memberRef);
+
+      if (memberSnapshot.exists) {
+        transaction.delete(memberRef);
+        transaction.update(orgRef, {
+          'followerCount': FieldValue.increment(-1),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+      }
+    });
+  }
+
+  Future<int> getAuthoritativeMemberCount(String orgId) async {
+    final snapshot = await _firestore.collection('organizations').doc(orgId).collection('members').count().get();
+    return snapshot.count ?? 0;
+  }
+
+  Future<void> updateFollowerCount(String orgId, int count) {
+    return _firestore.collection('organizations').doc(orgId).update({
+      'followerCount': count,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+
   Future<void> deleteMembership(String orgId, String uid) =>
       _firestore.collection('organizations').doc(orgId).collection('members').doc(uid).delete();
 

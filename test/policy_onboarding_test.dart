@@ -62,6 +62,9 @@ void main() {
       'type': org.type.name,
       'followerCount': 0,
     });
+    
+    // Seed at least one member (creator) for reconciliation
+    await firestore.collection('organizations').doc(orgId).collection('members').doc('creator_0').set({'status': 'follower'});
 
     final officialPolicy = AttendancePolicy(
       id: 'official-p1', version: 1, effectiveFrom: DateTime.now().subtract(const Duration(hours: 1)), 
@@ -82,11 +85,11 @@ void main() {
     await onboarding.followOrganization();
     expect(onboarding.step, OnboardingStep.complete);
     
-    final resolvedPolicy = await orgRepo.getResolvedPolicy(uid: 'user_123', organizationId: orgId, scopeId: orgId);
+    final resolvedPolicy = await orgRepo.getResolvedPolicy(uid: 'user_123', organizationId: orgId, scopeId: 'global');
     expect(resolvedPolicy?.minimumPercent, 80);
     expect(resolvedPolicy?.state, PolicyState.official);
 
-    final resolvedCalendar = await orgRepo.getResolvedCalendar(uid: 'user_123', organizationId: orgId, scopeId: orgId);
+    final resolvedCalendar = await orgRepo.getResolvedCalendar(uid: 'user_123', organizationId: orgId, scopeId: 'global');
     expect(resolvedCalendar.isConfigured, isFalse); // Not pre-seeded in this test
   });
 
@@ -99,6 +102,9 @@ void main() {
       'type': OrganizationType.college.name,
       'followerCount': 0,
     });
+    
+    // Seed one member for reconciliation
+    await firestore.collection('organizations').doc(orgId).collection('members').doc('creator_0').set({'status': 'follower'});
 
     // 1. Setup Personal tracking first
     onboarding.start(AppRole.student);

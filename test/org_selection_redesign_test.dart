@@ -196,6 +196,11 @@ void main() {
         'followerCount': 5,
         'createdBy': 'creator123',
       });
+      
+      // Seed authoritative members for reconciliation
+      for (int i = 0; i < 5; i++) {
+        await firestore.collection('organizations').doc(orgId).collection('members').doc('user_$i').set({'status': 'follower'});
+      }
 
       onboarding.start(AppRole.student);
       final results = await onboarding.searchOrganizations('No Policy');
@@ -218,6 +223,11 @@ void main() {
         'name': 'Popular C', 'type': 'company', 'followerCount': 150, 'name_lowercase': 'popular c'
       });
 
+      // Seed authoritative members for pop2 (reconciliation will happen on select)
+      for (int i = 0; i < 200; i++) {
+        await firestore.collection('organizations').doc('pop2').collection('members').doc('u_$i').set({'status': 'follower'});
+      }
+
       onboarding.start(AppRole.student);
       
       // Empty query should return popular colleges sorted by followerCount
@@ -227,7 +237,15 @@ void main() {
       expect(results[1].name, 'Popular A'); // 100 followers
       
       // 2. Test Creator Follower Count
+      // Manually seed org in firestore for the follow increment test part
       onboarding.createOrganization('New Org', null, null);
+      final newOrg = onboarding.selectedOrganization!;
+      await firestore.collection('organizations').doc(newOrg.id).set({
+        'name': 'New Org',
+        'type': newOrg.type.name,
+        'followerCount': 0, // setupOrganization usually sets 1, but let's test atomic increment
+      });
+
       onboarding.selectBasis(CalculationBasis.hours);
       onboarding.selectPeriod(EvaluationPeriod.monthly);
       onboarding.setTarget(85.0);

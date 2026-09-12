@@ -204,16 +204,27 @@ class OnboardingController extends ChangeNotifier {
     notifyListeners();
     
     try {
+      // Refresh Organization metadata with authoritative reconciliation
+      _selectedOrganization = await _organizationRepository.getOrganization(
+        org.id, 
+        forceRemote: true,
+        reconcile: true,
+      );
+
+      final orgId = _selectedOrganization!.id;
+      final activePolicyId = _selectedOrganization!.activePolicyId;
+      final activeCalendarId = _selectedOrganization!.activeCalendarId;
+
       // Direct discovery of organization-level rules (Direct Follow Flow)
       _officialPolicy = await _organizationRepository.getOfficialPolicyForScope(
-        org.id, 
+        orgId, 
         'global', 
-        activePolicyId: org.activePolicyId,
+        activePolicyId: activePolicyId,
       );
       _officialCalendar = await _organizationRepository.getOfficialCalendarForScope(
-        org.id, 
+        orgId, 
         'global', 
-        activeCalendarId: org.activeCalendarId,
+        activeCalendarId: activeCalendarId,
       );
       
       if (_officialPolicy != null) {
@@ -469,14 +480,19 @@ class OnboardingController extends ChangeNotifier {
 
       // Prepare domain models
       final followId = 'f-${DateTime.now().millisecondsSinceEpoch}';
+      
+      // Determine if we need personal overrides (Only if user changed defaults)
+      final needsBasisOverride = _basis != null && _basis != _officialPolicy?.basis;
+      final needsPeriodOverride = _evaluationPeriod != null && _evaluationPeriod != _officialPolicy?.evaluationPeriod;
+
       final follow = Follow(
         id: followId,
         organizationId: _selectedOrganization!.id,
         scopeId: scopeId,
         status: 'active',
         followedAt: DateTime.now(),
-        personalBasis: _basis,
-        personalEvaluationPeriod: _evaluationPeriod,
+        personalBasis: needsBasisOverride ? _basis : null,
+        personalEvaluationPeriod: needsPeriodOverride ? _evaluationPeriod : null,
         personalTargetPercent: _targetPercent,
         personalFullUnit: _fullUnit,
         personalHalfUnit: _fullUnit != null ? _fullUnit! / 2 : null,
@@ -558,16 +574,16 @@ class OnboardingController extends ChangeNotifier {
         // 1. Ensure authoritative metadata (activePolicyId) is cached locally for resolution
         await _organizationRepository.saveOrganizationMetadata(_selectedOrganization!);
 
-        // 2. Resolve final Follow record with smart overrides
-        // Only set personal overrides if the user actually changed them from organization defaults
-        final effectiveFollow = follow.copyWith(
-          personalBasis: _basis == _officialPolicy?.basis ? null : _basis,
-          personalEvaluationPeriod: _evaluationPeriod == _officialPolicy?.evaluationPeriod ? null : _evaluationPeriod,
+        // 2. Authoritative Atomic Join (Membership + Follower Count)
+        await _organizationRepository.joinOrganizationAtomic(membership);
+        
+        await _userRepository.saveFollow(uid, follow);
+        
+        // 3. Refresh Organization metadata to get authoritative server-side count
+        _selectedOrganization = await _organizationRepository.getOrganization(
+          _selectedOrganization!.id, 
+          forceRemote: true,
         );
-
-        await _userRepository.saveFollow(uid, effectiveFollow);
-        await _organizationRepository.saveMembership(membership);
-        await _organizationRepository.incrementFollowerCount(_selectedOrganization!.id);
       }
 
       _step = OnboardingStep.complete;

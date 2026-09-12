@@ -79,6 +79,7 @@ class SyncEngine {
         switch (operation.operation) {
           case 'putOrganization':
             final json = jsonDecode(operation.payload) as Map<String, dynamic>;
+            final createdByUid = json['uid'] as String? ?? uid;
             final org = Organization(
               id: json['id'] as String,
               name: json['name'] as String,
@@ -89,8 +90,8 @@ class SyncEngine {
               followerCount: (json['followerCount'] as num?)?.toInt() ?? 0,
               activePolicyId: json['activePolicyId'] as String?,
               activeCalendarId: json['activeCalendarId'] as String?,
+              createdBy: createdByUid,
             );
-            final createdByUid = json['uid'] as String? ?? uid;
             await _orgRemote.putOrganization(org, createdByUid);
             break;
 

@@ -188,6 +188,32 @@ class Organization {
     final digest = sha256.convert(bytes);
     return 'USR-${digest.toString().substring(0, 6).toUpperCase()}';
   }
+
+  Organization copyWith({
+    String? id,
+    String? name,
+    OrganizationType? type,
+    String? branch,
+    bool? isVerified,
+    bool? isHolidayCalendarConfigured,
+    int? followerCount,
+    double? confidenceScore,
+    String? activePolicyId,
+    String? activeCalendarId,
+    String? createdBy,
+  }) => Organization(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    type: type ?? this.type,
+    branch: branch ?? this.branch,
+    isVerified: isVerified ?? this.isVerified,
+    isHolidayCalendarConfigured: isHolidayCalendarConfigured ?? this.isHolidayCalendarConfigured,
+    followerCount: followerCount ?? this.followerCount,
+    confidenceScore: confidenceScore ?? this.confidenceScore,
+    activePolicyId: activePolicyId ?? this.activePolicyId,
+    activeCalendarId: activeCalendarId ?? this.activeCalendarId,
+    createdBy: createdBy ?? this.createdBy,
+  );
 }
 
 class Scope {

@@ -85,6 +85,8 @@ class _StandInAppState extends State<StandInApp> {
   late OnboardingController _landingController;
   StreamSubscription<User?>? _authSubscription;
   Future<void>? _authTask;
+  bool _isRestoring = false;
+  String? _restorationError;
   
   @override
   void initState() {
@@ -146,7 +148,13 @@ class _StandInAppState extends State<StandInApp> {
       // Strict UID check: Reuse existing session if UID hasn't changed
       if (_session?.uid == user.uid) return;
 
-      // Close existing authenticated session if switching accounts
+      if (mounted) {
+        setState(() {
+          _isRestoring = true;
+          _restorationError = null;
+        });
+      }
+
       if (_session != null) {
         final oldSession = _session;
         setState(() => _session = null);
@@ -167,39 +175,59 @@ class _StandInAppState extends State<StandInApp> {
       final userRepo = UserRepository(database, userRemote);
       final orgRepo = OrganizationRepository(database, orgRemote);
       
-      // Pre-fetch profile before setting session
-      // This ensures build() doesn't see an empty local DB for returning users
-      final hasProfile = await userRepo.syncProfile(user.uid);
+      try {
+        // Pre-fetch profile before setting session
+        // This ensures build() doesn't see an empty local DB for returning users
+        final hasProfile = await userRepo.syncProfile(user.uid);
 
-      final syncEngine = SyncEngine(
-        database, 
-        FirestoreAttendanceRemote(FirebaseFirestore.instance),
-        userRemote,
-        orgRemote,
-        orgRepo,
-        uid: user.uid,
-      );
-      syncEngine.start();
+        if (hasProfile) {
+          final profile = await userRepo.getProfile(user.uid);
+          final activeFollowId = profile?.activeFollowId;
+          if (activeFollowId != null) {
+            // Restore hierarchical context (Follow, Organization, Policy, Calendar)
+            await orgRepo.syncFollowContext(user.uid, activeFollowId, userRemote: userRemote);
+          }
+        }
 
-      final onboardingController = OnboardingController(
-        authService: auth,
-        userRepository: userRepo,
-        organizationRepository: orgRepo,
-        attendanceRemote: FirestoreAttendanceRemote(FirebaseFirestore.instance),
-        initialStep: hasProfile ? OnboardingStep.welcome : OnboardingStep.roleSelection,
-      );
+        final syncEngine = SyncEngine(
+          database, 
+          FirestoreAttendanceRemote(FirebaseFirestore.instance),
+          userRemote,
+          orgRemote,
+          orgRepo,
+          uid: user.uid,
+        );
+        syncEngine.start();
 
-      if (mounted) {
-        setState(() {
-          _session = UserSession(
-            uid: user.uid,
-            database: database,
-            userRepo: userRepo,
-            orgRepo: orgRepo,
-            syncEngine: syncEngine,
-            onboardingController: onboardingController,
-          );
-        });
+        final onboardingController = OnboardingController(
+          authService: auth,
+          userRepository: userRepo,
+          organizationRepository: orgRepo,
+          attendanceRemote: FirestoreAttendanceRemote(FirebaseFirestore.instance),
+          initialStep: hasProfile ? OnboardingStep.welcome : OnboardingStep.roleSelection,
+        );
+
+        if (mounted) {
+          setState(() {
+            _session = UserSession(
+              uid: user.uid,
+              database: database,
+              userRepo: userRepo,
+              orgRepo: orgRepo,
+              syncEngine: syncEngine,
+              onboardingController: onboardingController,
+            );
+            _isRestoring = false;
+          });
+        }
+      } catch (e) {
+        debugPrint('Error restoring user session: $e');
+        if (mounted) {
+          setState(() {
+            _isRestoring = false;
+            _restorationError = 'Could not restore your session. Please check your connection.';
+          });
+        }
       }
     }
   }
@@ -215,23 +243,52 @@ class _StandInAppState extends State<StandInApp> {
 
   @override
   Widget build(BuildContext context) {
+    if (_restorationError != null) {
+      return _buildApp(Scaffold(
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const Icon(Icons.cloud_off_rounded, size: 64, color: orange),
+                const SizedBox(height: 24),
+                Text(_restorationError!, textAlign: TextAlign.center, style: const TextStyle(fontSize: 16, color: navy, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 32),
+                SizedBox(
+                  width: 200,
+                  child: FilledButton(
+                    onPressed: () {
+                      final user = FirebaseAuth.instance.currentUser;
+                      if (user != null) _handleAuthState(user);
+                    }, 
+                    child: const Text('Retry'),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => auth.signOut(),
+                  child: const Text('Sign Out'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ));
+    }
+
+    if (_isRestoring || (_session == null && FirebaseAuth.instance.currentUser != null)) {
+      return _buildApp(const Scaffold(body: Center(child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CircularProgressIndicator(),
+          SizedBox(height: 24),
+          Text('Restoring your session...', style: TextStyle(color: navy, fontWeight: FontWeight.w600)),
+        ],
+      ))));
+    }
+
     if (_session == null) {
-      return StreamBuilder<User?>(
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.hasData && snapshot.data != null) {
-             return _buildApp(const Scaffold(body: Center(child: Column(
-               mainAxisAlignment: MainAxisAlignment.center,
-               children: [
-                 CircularProgressIndicator(),
-                 SizedBox(height: 24),
-                 Text('Restoring your session...', style: TextStyle(color: navy, fontWeight: FontWeight.w600)),
-               ],
-             ))));
-          }
-          return _buildApp(LandingLoginPage(controller: _landingController));
-        },
-      );
+      return _buildApp(LandingLoginPage(controller: _landingController));
     }
 
     final session = _session!;

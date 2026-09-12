@@ -52,11 +52,17 @@ void main() {
     when(() => mockOrgRepo.saveMembership(any())).thenAnswer((_) async => Future.value());
     when(() => mockOrgRepo.saveOrganization(any(), any())).thenAnswer((_) async => Future.value());
     when(() => mockOrgRepo.saveOrganizationMetadata(any())).thenAnswer((_) async => Future.value());
-    when(() => mockOrgRepo.incrementFollowerCount(any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.joinOrganizationAtomic(any())).thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.getOrganization(any(), forceRemote: any(named: 'forceRemote'), reconcile: any(named: 'reconcile'))).thenAnswer((i) async => Organization(
+      id: i.positionalArguments[0] as String,
+      name: 'Test Org',
+      type: OrganizationType.college,
+    ));
     when(() => mockOrgRepo.getResolvedPolicy(
       uid: any(named: 'uid'), 
       organizationId: any(named: 'organizationId'), 
       scopeId: any(named: 'scopeId'),
+      followId: any(named: 'followId'),
     )).thenAnswer((_) async => null);
   });
 
