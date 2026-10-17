@@ -15,10 +15,13 @@ class LocalFirstAttendanceRepository implements SyncQueueRepository {
   final String scopeId;
 
   @override
-  Stream<List<AttendanceRecord>> watchRecords() => _database.watchAttendance(organizationId).map((rows) => rows.map(_toDomain).toList(growable: false));
+  Stream<List<AttendanceRecord>> watchRecords() => _database.watchAttendance(organizationId, scopeId: scopeId).map((rows) => rows.map(_toDomain).toList(growable: false));
 
   @override
   Future<void> save(AttendanceRecord record) async {
+    if (organizationId.isEmpty || organizationId == 'unknown' || scopeId.isEmpty) {
+      throw StateError('Choose an organization and attendance scope before marking attendance');
+    }
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     if (record.date.isAfter(todayDate)) {

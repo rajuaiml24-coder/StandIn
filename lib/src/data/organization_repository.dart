@@ -289,7 +289,7 @@ class OrganizationRepository {
       }
 
       await _database.enqueue(SyncQueueRowsCompanion.insert(
-        id: 'policy:${policy.id}',
+        id: 'policy:${scopedCacheId(org.id, policy.id)}',
         operation: 'putPolicy',
         entityId: policy.id,
         payload: jsonEncode({
@@ -314,7 +314,7 @@ class OrganizationRepository {
       ));
 
       await _database.enqueue(SyncQueueRowsCompanion.insert(
-        id: 'calendar:${calendar.id}',
+        id: 'calendar:${scopedCacheId(org.id, calendar.id)}',
         operation: 'putCalendar',
         entityId: calendar.id,
         payload: jsonEncode({
@@ -416,7 +416,15 @@ class OrganizationRepository {
 
     if (effectiveFollowId != null) {
       final follow = await _database.getFollow(effectiveFollowId);
-      if (follow != null && (follow.personalBasis != null || follow.personalTargetPercent != null || follow.personalEvaluationPeriod != null)) {
+      if (follow != null && follow.organizationId == organizationId && follow.scopeId == scopeId &&
+          (policy == null || follow.personalBasis != null || follow.personalTargetPercent != null || follow.personalEvaluationPeriod != null)) {
+        final basis = follow.personalBasis != null
+            ? CalculationBasis.values.byName(follow.personalBasis!)
+            : policy?.basis ?? CalculationBasis.hours;
+        final basisChanged = policy != null && basis != policy.basis;
+        final defaultFull = basis == CalculationBasis.days ? 1.0 : (basis == CalculationBasis.periods ? 6.0 : 8.0);
+        final full = follow.personalFullUnit ?? (basisChanged ? defaultFull : policy?.fullUnit ?? defaultFull);
+        final half = follow.personalHalfUnit ?? (basisChanged ? full / 2 : policy?.halfUnit ?? full / 2);
         policy = (policy ?? AttendancePolicy(
           id: 'personal-${follow.id}',
           version: 1,
@@ -428,8 +436,10 @@ class OrganizationRepository {
           basis: follow.personalBasis != null 
               ? CalculationBasis.values.byName(follow.personalBasis!) 
               : CalculationBasis.hours,
-          fullUnit: follow.personalFullUnit ?? 8.0,
-          halfUnit: follow.personalHalfUnit ?? 4.0,
+          fullUnit: full,
+          halfUnit: half,
+          organizationId: organizationId,
+          scopeId: scopeId,
         )).copyWith(
           state: PolicyState.personal,
           minimumPercent: follow.personalTargetPercent ?? policy?.minimumPercent,
@@ -439,8 +449,8 @@ class OrganizationRepository {
           evaluationPeriod: follow.personalEvaluationPeriod != null 
               ? EvaluationPeriod.values.byName(follow.personalEvaluationPeriod!) 
               : policy?.evaluationPeriod,
-          fullUnit: follow.personalFullUnit ?? policy?.fullUnit,
-          halfUnit: follow.personalHalfUnit ?? policy?.halfUnit,
+          fullUnit: full,
+          halfUnit: half,
           startDate: follow.personalStartDate ?? policy?.startDate,
           endDate: follow.personalEndDate ?? policy?.endDate,
         );
@@ -478,7 +488,7 @@ class OrganizationRepository {
   Future<AttendancePolicy?> _getCachedOrRemotePolicy(String orgId, String scopeId, {String? explicitId}) async {
     // 1. Authoritative Lookup by ID (Bypasses timestamp comparison)
     if (explicitId != null) {
-      final authoritative = await _database.getPolicyById(explicitId);
+      final authoritative = await _database.getPolicyById(explicitId, organizationId: orgId);
       if (authoritative != null) return _toPolicy(authoritative);
     }
 
@@ -518,7 +528,7 @@ class OrganizationRepository {
   }
 
   AttendancePolicy _toPolicy(OrganizationPolicyRow row) => AttendancePolicy(
-    id: row.policyId,
+    id: remoteCacheId(row.policyId),
     version: row.version,
     effectiveFrom: row.effectiveFrom,
     state: PolicyState.values.byName(row.state),
@@ -548,24 +558,31 @@ class OrganizationRepository {
     // 1. Check Personal Configuration (stored in Follow)
     if (followId != null) {
       final follow = await _database.getFollow(followId);
-      if (follow != null && follow.isPersonalCalendarConfigured) {
+      if (follow != null && follow.organizationId == organizationId &&
+          follow.scopeId == scopeId && follow.isPersonalCalendarConfigured) {
         final personalWeeklyOffs = follow.personalWeeklyOffs != null 
             ? (jsonDecode(follow.personalWeeklyOffs!) as List).cast<int>() 
             : <int>[];
         final personalOffSaturdays = follow.personalOffSaturdays != null 
             ? (jsonDecode(follow.personalOffSaturdays!) as List).cast<int>() 
             : <int>[];
-        final personalHolidays = follow.personalHolidays != null 
+        final personalHolidays = follow.personalHolidays != null
             ? (jsonDecode(follow.personalHolidays!) as List).map((h) => Holiday.fromJson(h as Map<String, dynamic>)).toList() 
             : <Holiday>[];
             
+        // Older follows saved [] even when they intended to inherit holidays.
+        final inherited = await _getCalendarHierarchy(organizationId, scopeId, activeCalendarId: org?.activeCalendarId);
+        final holidays = <String, Holiday>{
+          for (final holiday in inherited.holidays) holiday.date.toIso8601String().substring(0, 10): holiday,
+          for (final holiday in personalHolidays) holiday.date.toIso8601String().substring(0, 10): holiday,
+        };
         return AttendanceCalendar(
           id: 'personal-cal-${follow.id}',
           version: 1,
           effectiveFrom: follow.followedAt,
           weeklyOffs: personalWeeklyOffs,
           offSaturdays: personalOffSaturdays,
-          holidays: personalHolidays,
+          holidays: holidays.values.toList(),
           isConfigured: true,
           organizationId: follow.organizationId,
           scopeId: follow.scopeId,
@@ -605,7 +622,7 @@ class OrganizationRepository {
   Future<AttendanceCalendar?> _getCachedOrRemoteCalendar(String orgId, String scopeId, {String? explicitId}) async {
     // 1. Authoritative Lookup by ID
     if (explicitId != null) {
-      final authoritative = await _database.getCalendarById(explicitId);
+      final authoritative = await _database.getCalendarById(explicitId, organizationId: orgId);
       if (authoritative != null) return _toCalendar(authoritative);
     }
 
@@ -712,7 +729,7 @@ class OrganizationRepository {
         : <Holiday>[];
 
     return AttendanceCalendar(
-      id: row.id,
+      id: remoteCacheId(row.id),
       version: row.version,
       effectiveFrom: row.effectiveFrom,
       weeklyOffs: weeklyOffs,

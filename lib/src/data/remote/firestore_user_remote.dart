@@ -5,15 +5,26 @@ class FirestoreUserRemote {
   FirestoreUserRemote(this._firestore);
   final FirebaseFirestore _firestore;
 
-  Future<void> createUserProfile(UserProfile profile) =>
-      _firestore.collection('users').doc(profile.uid).set({
+  Future<void> createUserProfile(UserProfile profile) => _firestore.runTransaction((transaction) async {
+    final reference = _firestore.collection('users').doc(profile.uid);
+    final existing = await transaction.get(reference);
+    final fields = <String, dynamic>{
         'displayName': profile.displayName,
-        'role': profile.role.name,
         'mobile': profile.mobile,
         'activeFollowId': profile.activeFollowId,
-        'createdAt': FieldValue.serverTimestamp(),
         'updatedAt': FieldValue.serverTimestamp(),
+    };
+    if (existing.exists) {
+      transaction.update(reference, fields);
+    } else {
+      transaction.set(reference, {
+        ...fields,
+        'role': profile.role.name,
+        'isAdmin': false,
+        'createdAt': FieldValue.serverTimestamp(),
       });
+    }
+  });
 
   Future<void> updateActiveFollow(String uid, String followId) =>
       _firestore.collection('users').doc(uid).update({
@@ -26,10 +37,15 @@ class FirestoreUserRemote {
     return !doc.exists;
   }
 
-  Future<void> claimUsername(String username, String uid) =>
-      _firestore.collection('usernames').doc(username.toLowerCase()).set({
-        'uid': uid,
-      });
+  Future<void> claimUsername(String username, String uid) => _firestore.runTransaction((transaction) async {
+    final reference = _firestore.collection('usernames').doc(username.toLowerCase());
+    final existing = await transaction.get(reference);
+    if (existing.exists) {
+      if (existing.data()?['uid'] == uid) return;
+      throw StateError('That username is already taken. Please choose another.');
+    }
+    transaction.set(reference, {'uid': uid});
+  });
 
   Future<void> putFollow(String uid, Follow follow) =>
       _firestore.collection('users').doc(uid).collection('follows').doc(follow.id).set({
@@ -100,24 +116,22 @@ class FirestoreUserRemote {
   }
 
   Future<void> deleteProfile(String uid) async {
-    final batch = _firestore.batch();
     
     // 1. Delete follows subcollection
     final follows = await _firestore.collection('users').doc(uid).collection('follows').get();
-    for (var doc in follows.docs) {
-      batch.delete(doc.reference);
-    }
-    
-    // 2. Delete profile
-    batch.delete(_firestore.collection('users').doc(uid));
-
-    // 3. Delete username claim
     final usernameDoc = await _firestore.collection('usernames').where('uid', isEqualTo: uid).get();
-    for (var doc in usernameDoc.docs) {
-      batch.delete(doc.reference);
+    final references = [
+      ...follows.docs.map((doc) => doc.reference),
+      ...usernameDoc.docs.map((doc) => doc.reference),
+    ];
+    for (var offset = 0; offset < references.length; offset += 450) {
+      final batch = _firestore.batch();
+      for (final reference in references.skip(offset).take(450)) {
+        batch.delete(reference);
+      }
+      await batch.commit();
     }
-
-    await batch.commit();
+    await _firestore.collection('users').doc(uid).delete();
   }
 
   Stream<UserProfile?> watchProfile(String uid) =>

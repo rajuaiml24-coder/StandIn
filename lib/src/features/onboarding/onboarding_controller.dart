@@ -1,11 +1,11 @@
 import 'dart:math';
 import 'dart:convert';
-import 'package:firebase_auth/firebase_auth.dart' as auth;
 import 'package:flutter/material.dart';
 import '../../data/remote/firestore_attendance_remote.dart';
 import '../../data/auth/auth_service.dart';
 import '../../data/organization_repository.dart';
 import '../../data/user_repository.dart';
+import '../../data/sync/sync_engine.dart';
 import '../../domain/attendance.dart';
 import '../../domain/validators.dart';
 
@@ -38,17 +38,27 @@ class OnboardingController extends ChangeNotifier {
     required UserRepository userRepository,
     required OrganizationRepository organizationRepository,
     required FirestoreAttendanceRemote attendanceRemote,
+    SyncEngine? syncEngine,
     OnboardingStep initialStep = OnboardingStep.welcome,
   })  : _authService = authService,
         _userRepository = userRepository,
         _organizationRepository = organizationRepository,
         _attendanceRemote = attendanceRemote,
+        _syncEngine = syncEngine,
         _step = initialStep;
 
   final AuthService _authService;
   final UserRepository _userRepository;
   final OrganizationRepository _organizationRepository;
   final FirestoreAttendanceRemote _attendanceRemote;
+  final SyncEngine? _syncEngine;
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 
   OnboardingStep _step;
   OnboardingStep get step => _step;
@@ -143,6 +153,7 @@ class OnboardingController extends ChangeNotifier {
 
     try {
       final credential = await _authService.signInWithGoogle();
+      if (_disposed) return;
       _isAuthenticating = false;
       if (credential == null) {
         notifyListeners();
@@ -152,6 +163,7 @@ class OnboardingController extends ChangeNotifier {
       // No more navigation logic here.
       // StandInApp listens to authStateChanges and will handle the transition.
     } catch (e) {
+      if (_disposed) return;
       _authError = e.toString();
       _isAuthenticating = false;
       notifyListeners();
@@ -500,7 +512,7 @@ class OnboardingController extends ChangeNotifier {
         personalEndDate: _endDate,
         personalWeeklyOffs: jsonEncode(personalWeeklyOffs),
         personalOffSaturdays: jsonEncode(personalOffSaturdays),
-        personalHolidays: jsonEncode([]),
+        personalHolidays: jsonEncode(_officialCalendar?.holidays.map((holiday) => holiday.toJson()).toList() ?? []),
         isPersonalCalendarConfigured: calendarConfigured,
       );
 
@@ -519,9 +531,6 @@ class OnboardingController extends ChangeNotifier {
         role: _role!,
         activeFollowId: followId,
       );
-
-      // 1. Save Profile (Always local first)
-      await _userRepository.createProfile(profile);
 
       // 2. Handle Organization Setup vs. Simple Join
       if (_isCreatingNewOrganization) {
@@ -586,6 +595,8 @@ class OnboardingController extends ChangeNotifier {
         );
       }
 
+      // Publish the active follow only after its local context is available.
+      await _userRepository.createProfile(profile);
       _step = OnboardingStep.complete;
     } catch (e) {
       _error = e.toString();
@@ -647,6 +658,7 @@ class OnboardingController extends ChangeNotifier {
   }
 
   Future<bool> deleteAccount() async {
+    if (_isLoading) return false;
     final uid = _authService.uid;
     if (uid == null) return false;
 
@@ -657,22 +669,24 @@ class OnboardingController extends ChangeNotifier {
     try {
       // 1. Re-authenticate (Mandatory for user.delete())
       await _authService.reauthenticateWithGoogle();
+      await _syncEngine?.stop();
 
       // 2. Purge Remote Data
       await _userRepository.purgeRemoteData(uid, _organizationRepository, _attendanceRemote);
+      await _userRepository.clearLocalPersonalData();
 
       // 3. Delete Firebase Auth User
       // We don't call logout here because we want to trigger user.delete()
-      final user = auth.FirebaseAuth.instance.currentUser;
-      await user?.delete();
+      await _authService.deleteCurrentUser();
 
       _isLoading = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
       return true;
     } catch (e) {
+      if (!_disposed) _syncEngine?.start();
       _error = e.toString();
       _isLoading = false;
-      notifyListeners();
+      if (!_disposed) notifyListeners();
       return false;
     }
   }

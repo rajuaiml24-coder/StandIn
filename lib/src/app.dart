@@ -204,7 +204,8 @@ class _StandInAppState extends State<StandInApp> {
           userRepository: userRepo,
           organizationRepository: orgRepo,
           attendanceRemote: FirestoreAttendanceRemote(FirebaseFirestore.instance),
-          initialStep: hasProfile ? OnboardingStep.welcome : OnboardingStep.roleSelection,
+          syncEngine: syncEngine,
+          initialStep: OnboardingStep.roleSelection,
         );
 
         if (mounted) {
@@ -310,6 +311,9 @@ class _StandInAppState extends State<StandInApp> {
           builder: (context, followSnapshot) {
             final followRow = followSnapshot.data;
             if (followRow == null) {
+              if (followSnapshot.hasError || followSnapshot.connectionState == ConnectionState.active) {
+                return _buildContextRecovery('Your organization could not be loaded.');
+              }
               return _buildApp(const Scaffold(body: Center(child: CircularProgressIndicator())));
             }
 
@@ -321,6 +325,10 @@ class _StandInAppState extends State<StandInApp> {
                 followId: followRow.id,
               ),
               builder: (context, policySnapshot) {
+                if (policySnapshot.hasError ||
+                    (policySnapshot.connectionState == ConnectionState.done && policySnapshot.data == null)) {
+                  return _buildContextRecovery('Your attendance rules could not be loaded.');
+                }
                 if (!policySnapshot.hasData) {
                   return _buildApp(const Scaffold(body: Center(child: CircularProgressIndicator())));
                 }
@@ -335,6 +343,9 @@ class _StandInAppState extends State<StandInApp> {
                     followId: followRow.id,
                   ),
                   builder: (context, calendarSnapshot) {
+                    if (calendarSnapshot.hasError) {
+                      return _buildContextRecovery('Your attendance calendar could not be loaded.');
+                    }
                     if (!calendarSnapshot.hasData) {
                       return _buildApp(const Scaffold(body: Center(child: CircularProgressIndicator())));
                     }
@@ -355,6 +366,29 @@ class _StandInAppState extends State<StandInApp> {
       },
     );
   }
+
+  Widget _buildContextRecovery(String message) => _buildApp(Scaffold(
+    body: Center(child: Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(message, textAlign: TextAlign.center),
+        const SizedBox(height: 16),
+        FilledButton.icon(
+          icon: const Icon(Icons.refresh),
+          label: const Text('Retry'),
+          onPressed: () async {
+            try {
+              await _session?.syncEngine.syncNow();
+            } catch (_) {
+              // Keep the recovery screen available while the connection is down.
+            }
+            if (mounted) setState(() {});
+          },
+        ),
+        TextButton(onPressed: () => auth.signOut(), child: const Text('Sign Out')),
+      ],
+    )),
+  ));
 
   Widget _buildApp(Widget home) => MaterialApp(
     debugShowCheckedModeBanner: false,
@@ -427,7 +461,8 @@ class _DashboardResolverState extends State<DashboardResolver> {
   @override
   void didUpdateWidget(DashboardResolver oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.policy.id != widget.policy.id || oldWidget.calendar.id != widget.calendar.id || oldWidget.session.uid != widget.session.uid) {
+    if (oldWidget.policy != widget.policy || oldWidget.calendar != widget.calendar ||
+        oldWidget.followRow.id != widget.followRow.id || oldWidget.session.uid != widget.session.uid) {
       controller.dispose();
       _initController();
     }
@@ -437,8 +472,8 @@ class _DashboardResolverState extends State<DashboardResolver> {
     repository = LocalFirstAttendanceRepository(
       widget.session.database,
       uid: widget.session.uid,
-      organizationId: widget.policy.organizationId ?? 'unknown',
-      scopeId: widget.policy.scopeId ?? 'global',
+      organizationId: widget.followRow.organizationId,
+      scopeId: widget.followRow.scopeId,
     );
     controller = AttendanceController(repository, const PolicyEngine(), widget.policy, widget.calendar);
   }
@@ -745,7 +780,7 @@ class _HomePageState extends State<HomePage> {
                 Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Text(summary.periodLabel, style: const TextStyle(color: Color(0xFF667085), fontSize: 14, fontWeight: FontWeight.w600)), 
                   const SizedBox(height: 2), 
-                  Text(summary.isSafe ? 'You are safe' : 'Attention needed', 
+                  Text(summary.isPolicyIncomplete ? 'Attendance rules incomplete' : (summary.isSafe ? 'You are safe' : 'Attention needed'),
                     style: const TextStyle(fontSize: 26, letterSpacing: -.6, fontWeight: FontWeight.w800, color: navy)
                   )
                 ])),
@@ -818,13 +853,13 @@ class _AttendanceHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final statusColor = switch (summary.status) {
+    final statusColor = summary.isPolicyIncomplete ? const Color(0xFF98A2B3) : switch (summary.status) {
       PeriodStatus.onTrack => const Color(0xFF16A34A),
       PeriodStatus.atRisk => const Color(0xFFF59E0B),
       PeriodStatus.impossible => const Color(0xFFDC2626),
     };
 
-    final statusLabel = switch (summary.status) {
+    final statusLabel = summary.isPolicyIncomplete ? 'RULES INCOMPLETE' : switch (summary.status) {
       PeriodStatus.onTrack => "YOU'RE ON TRACK",
       PeriodStatus.atRisk => "ATTENTION NEEDED",
       PeriodStatus.impossible => "TARGET UNREACHABLE",
@@ -895,7 +930,7 @@ class _AttendanceHero extends StatelessWidget {
               children: [
                 const Icon(Icons.stars_rounded, color: orange, size: 16),
                 const SizedBox(width: 8),
-                Expanded(child: Text('${summary.periodLabel} • Target: ${policy.minimumPercent?.toStringAsFixed(0)}%', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700))),
+                Expanded(child: Text('${summary.periodLabel} - ${policy.hasValidTarget ? "Target: ${policy.minimumPercent!.toStringAsFixed(0)}%" : "Target not set"}', style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w700))),
                 const Icon(Icons.info_outline, color: Colors.white38, size: 14),
               ],
             ),
@@ -1370,7 +1405,7 @@ class ProfilePage extends StatelessWidget {
         Card(child: Column(children: [
           ListTile(
             leading: const Icon(Icons.rule_rounded, color: navy), 
-            title: Text('Required ${policy.minimumPercent?.toStringAsFixed(0)}%'),
+            title: Text(policy.hasValidTarget ? 'Required ${policy.minimumPercent!.toStringAsFixed(0)}%' : 'Required target not set'),
             subtitle: Text('Tracked by $unitLabel (${policy.evaluationPeriod.name})'),
           ),
           ListTile(
@@ -1439,16 +1474,16 @@ class ProfilePage extends StatelessWidget {
 void _confirmAccountDeletion(BuildContext context, OnboardingController controller) {
   showDialog(
     context: context,
-    builder: (context) => AlertDialog(
+    builder: (dialogContext) => AlertDialog(
       title: const Text('Delete Account?', style: TextStyle(fontWeight: FontWeight.bold)),
       content: const Text(
         'This will permanently delete your profile, attendance history, and personal settings.\n\nShared organization data will be preserved.',
       ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+        TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
         TextButton(
           onPressed: () async {
-            Navigator.pop(context);
+            Navigator.pop(dialogContext);
             final success = await controller.deleteAccount();
             if (!success && context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1469,6 +1504,7 @@ Future<void> showMarkAttendance(BuildContext context, AttendanceController contr
   
   AttendanceStatus selected = existing?.status ?? AttendanceStatus.full; 
   double hours = existing?.actualUnits ?? controller.policy.fullUnit;
+  bool saving = false;
   
   return showModalBottomSheet(
     context: context, 
@@ -1526,9 +1562,19 @@ Future<void> showMarkAttendance(BuildContext context, AttendanceController contr
               SizedBox(
                 width: double.infinity, 
                 child: FilledButton(
-                  onPressed: () async { 
-                    await controller.mark(selected, actualUnits: hours, date: targetDate); 
-                    if (sheet.mounted) Navigator.pop(sheet); 
+                  onPressed: saving ? null : () async {
+                    setSheet(() => saving = true);
+                    try {
+                      await controller.mark(selected, actualUnits: hours, date: targetDate);
+                      if (sheet.mounted) Navigator.pop(sheet);
+                    } catch (error) {
+                      if (sheet.mounted) setSheet(() => saving = false);
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Attendance could not be saved: $error')),
+                        );
+                      }
+                    }
                   }, 
                   style: FilledButton.styleFrom(
                     backgroundColor: navy,

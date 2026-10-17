@@ -26,7 +26,7 @@ class FirestoreAttendanceRemote {
         .collection('users')
         .doc(uid)
         .collection('attendance')
-        .where('updatedAt', isGreaterThan: Timestamp.fromDate(since))
+        .where('updatedAt', isGreaterThanOrEqualTo: Timestamp.fromDate(since))
         .get();
 
     return snapshot.docs.map((doc) {
@@ -42,6 +42,7 @@ class FirestoreAttendanceRemote {
         calendarVersionId: data['calendarVersionId'] as String?,
         source: data['source'] as String? ?? 'manual',
         pendingSync: false,
+        updatedAt: (data['updatedAt'] as Timestamp?)?.toDate(),
       );
     }).toList();
   }
@@ -50,10 +51,12 @@ class FirestoreAttendanceRemote {
     final snapshot = await _firestore.collection('users').doc(uid).collection('attendance').get();
     if (snapshot.docs.isEmpty) return;
     
-    final batch = _firestore.batch();
-    for (var doc in snapshot.docs) {
-      batch.delete(doc.reference);
+    for (var offset = 0; offset < snapshot.docs.length; offset += 450) {
+      final batch = _firestore.batch();
+      for (final doc in snapshot.docs.skip(offset).take(450)) {
+        batch.delete(doc.reference);
+      }
+      await batch.commit();
     }
-    await batch.commit();
   }
 }

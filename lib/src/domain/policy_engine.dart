@@ -12,7 +12,7 @@ class PolicyEngine {
     bool isHolidayCalendarConfigured = false,
   }) {
     final periodRange = _getPeriodRange(policy, now);
-    if (periodRange == null) {
+    if (periodRange == null || !policy.hasValidUnits) {
       return AttendanceSummary(
         actual: 0,
         expected: 0,
@@ -21,17 +21,18 @@ class PolicyEngine {
         percent: 0,
         maximumPossible: 0,
         maximumPercent: 0,
-        isSafe: true,
-        isAchievable: true,
+        isSafe: false,
+        isAchievable: false,
         safeToMiss: 0,
         unitsToRecover: 0,
         shortfall: 0,
         unmarkedCount: 0,
         periodLabel: 'Attendance period not set',
-        isPolicyIncomplete: false,
+        isPolicyIncomplete: true,
         status: PeriodStatus.onTrack,
         attendedLabel: '',
         conductedLabel: '',
+        recoveryMessage: 'Attendance rules are incomplete.',
       );
     }
 
@@ -60,7 +61,7 @@ class PolicyEngine {
     final monthEnd = DateTime(year, month + 1, 0, 23, 59, 59);
     
     final currentMonthStart = DateTime(now.year, now.month, 1);
-    if (monthStart.isAfter(currentMonthStart)) {
+    if (monthStart.isAfter(currentMonthStart) || !policy.hasValidUnits) {
       return AttendanceSummary(
         actual: 0,
         expected: 0,
@@ -69,8 +70,8 @@ class PolicyEngine {
         percent: 0,
         maximumPossible: 0,
         maximumPercent: 0,
-        isSafe: true,
-        isAchievable: true,
+        isSafe: false,
+        isAchievable: false,
         safeToMiss: 0,
         unitsToRecover: 0,
         shortfall: 0,
@@ -80,6 +81,7 @@ class PolicyEngine {
         status: PeriodStatus.onTrack,
         attendedLabel: '',
         conductedLabel: '',
+        isPolicyIncomplete: !policy.hasValidUnits || !policy.hasValidTarget || _getPeriodRange(policy, now) == null,
       );
     }
 
@@ -176,10 +178,10 @@ class PolicyEngine {
     double safeToMiss = 0;
     double unitsToRecover = 0;
     double shortfall = 0;
-    bool isSafe = true;
-    bool isAchievable = true;
+    bool isSafe = false;
+    bool isAchievable = false;
 
-    if (policy.minimumPercent != null) {
+    if (policy.hasValidTarget && _getPeriodRange(policy, now) != null) {
       final targetFraction = policy.minimumPercent! / 100;
       final requiredUnits = totalConducted * targetFraction;
       final gap = requiredUnits - actual;
@@ -218,6 +220,10 @@ class PolicyEngine {
       if (isAchievable) {
         safeToMiss = maximumPossible - requiredUnits;
       }
+    } else {
+      recoveryMessage = policy.hasValidTarget
+          ? 'Attendance period is not set.'
+          : 'Required attendance target is not set.';
     }
 
     // If no records and we are not treating unmarked as absent, show specific state
@@ -239,7 +245,7 @@ class PolicyEngine {
       unmarkedCount: unmarkedCount,
       periodLabel: noData ? 'Attendance not marked' : periodLabel,
       totalExpectedInPeriod: totalConducted,
-      isPolicyIncomplete: false,
+      isPolicyIncomplete: !policy.hasValidTarget || _getPeriodRange(policy, now) == null,
       isEstimation: !calendar.isConfigured || !isHolidayCalendarConfigured,
       recoveryMessage: recoveryMessage,
       progressLabel: progressLabel,
@@ -273,16 +279,14 @@ class PolicyEngine {
       case EvaluationPeriod.semester:
       case EvaluationPeriod.academicYear:
       case EvaluationPeriod.halfYear:
-        if (policy.startDate == null || policy.endDate == null) return null;
-        return (start: policy.startDate!, end: policy.endDate!);
       case EvaluationPeriod.custom:
-        if (policy.startDate == null || policy.endDate == null) {
-          return (
-            start: DateTime(now.year, 1, 1), 
-            end: DateTime(now.year, 12, 31, 23, 59, 59)
-          );
-        }
-        return (start: policy.startDate!, end: policy.endDate!);
+        if (policy.startDate == null || policy.endDate == null) return null;
+        final start = policy.startDate!;
+        final end = policy.endDate!;
+        final firstDay = DateTime(start.year, start.month, start.day);
+        final lastDay = DateTime(end.year, end.month, end.day, 23, 59, 59);
+        if (lastDay.isBefore(firstDay)) return null;
+        return (start: firstDay, end: lastDay);
     }
   }
 
@@ -317,6 +321,7 @@ class PolicyEngine {
     required AttendancePolicy policy,
     double? actualUnits,
   }) {
+    if (!policy.hasValidUnits) throw StateError('Attendance units are invalid');
     final expected = (status == AttendanceStatus.holiday || status == AttendanceStatus.weeklyOff) ? 0.0 : policy.fullUnit;
     final actual = switch (status) {
       AttendanceStatus.full => policy.fullUnit,

@@ -375,6 +375,12 @@ class AttendancePolicy {
 
   bool get isSure => minimumPercent != null;
 
+  bool get hasValidUnits => fullUnit.isFinite && fullUnit > 0 &&
+      halfUnit.isFinite && halfUnit >= 0 && halfUnit <= fullUnit;
+
+  bool get hasValidTarget => minimumPercent != null && minimumPercent!.isFinite &&
+      minimumPercent! >= 0 && minimumPercent! <= 100;
+
   AttendancePolicy copyWith({
     String? id,
     int? version,
@@ -420,6 +426,7 @@ class AttendanceRecord {
     this.calendarVersionId,
     this.organizationId,
     this.scopeId,
+    this.updatedAt,
   });
 
   final DateTime date;
@@ -432,6 +439,7 @@ class AttendanceRecord {
   final String? calendarVersionId;
   final String? organizationId;
   final String? scopeId;
+  final DateTime? updatedAt;
 
   AttendanceRecord copyWith({
     bool? pendingSync,
@@ -453,6 +461,7 @@ class AttendanceRecord {
         calendarVersionId: calendarVersionId ?? this.calendarVersionId,
         organizationId: organizationId ?? this.organizationId,
         scopeId: scopeId ?? this.scopeId,
+        updatedAt: updatedAt,
       );
 }
 

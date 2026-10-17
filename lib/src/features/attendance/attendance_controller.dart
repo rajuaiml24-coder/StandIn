@@ -30,7 +30,8 @@ class AttendanceController extends ChangeNotifier {
   AttendanceSummary? summary;
 
   Future<void> mark(AttendanceStatus status, {double? actualUnits, DateTime? date}) {
-    final targetDate = date ?? DateTime.now();
+    final selectedDate = date ?? DateTime.now();
+    final targetDate = DateTime(selectedDate.year, selectedDate.month, selectedDate.day);
     final today = DateTime.now();
     final todayDate = DateTime(today.year, today.month, today.day);
     if (targetDate.isAfter(todayDate)) return Future.value();

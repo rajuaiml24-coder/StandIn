@@ -44,7 +44,7 @@ class AuthService {
 
   Future<void> reauthenticateWithGoogle() async {
     final user = _auth.currentUser;
-    if (user == null) return;
+    if (user == null) throw StateError('Please sign in before deleting your account');
 
     if (kIsWeb) {
       await user.reauthenticateWithPopup(GoogleAuthProvider());
@@ -52,7 +52,7 @@ class AuthService {
     }
 
     final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
-    if (googleUser == null) return;
+    if (googleUser == null) throw StateError('Account deletion cancelled');
 
     final GoogleSignInAuthentication googleAuth = await googleUser.authentication;
     final AuthCredential credential = GoogleAuthProvider.credential(
@@ -61,6 +61,12 @@ class AuthService {
     );
 
     await user.reauthenticateWithCredential(credential);
+  }
+
+  Future<void> deleteCurrentUser() async {
+    final user = _auth.currentUser;
+    if (user == null) throw StateError('Please sign in before deleting your account');
+    await user.delete();
   }
 
   /// Link an additional credential (e.g. Phone, Apple) to the existing account.

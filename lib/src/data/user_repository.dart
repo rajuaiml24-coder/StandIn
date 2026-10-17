@@ -31,7 +31,15 @@ class UserRepository {
       );
 
   Future<bool> syncProfile(String uid) async {
-    final profile = await _remote.watchProfile(uid).first;
+    final local = await _database.getUserProfile(uid);
+    if (local != null && await _database.getOperation('profile:$uid') != null) return true;
+    UserProfile? profile;
+    try {
+      profile = await _remote.watchProfile(uid).first;
+    } catch (_) {
+      if (local != null) return true;
+      rethrow;
+    }
     if (profile != null) {
       await _database.upsertUserProfile(UserProfileRowsCompanion.insert(
         uid: profile.uid,
@@ -133,14 +141,18 @@ class UserRepository {
   Future<void> purgeRemoteData(String uid, OrganizationRepository orgRepo, FirestoreAttendanceRemote attendanceRemote) async {
     // 1. Fetch follows to find memberships
     final follows = await _remote.getFollows(uid);
+    final localFollows = await _database.select(_database.followRows).get();
+    final localMemberships = await (_database.select(_database.membershipRows)
+      ..where((row) => row.uid.equals(uid))).get();
+    final organizations = {
+      ...follows.map((follow) => follow.organizationId),
+      ...localFollows.map((follow) => follow.organizationId),
+      ...localMemberships.map((membership) => membership.organizationId),
+    };
     
     // 2. Delete memberships in organizations
-    for (var follow in follows) {
-      try {
-        await orgRepo.removeMembership(follow.organizationId, uid);
-      } catch (e) {
-        // Log and continue
-      }
+    for (final orgId in organizations) {
+      await orgRepo.removeMembership(orgId, uid);
     }
 
     // 3. Delete attendance
@@ -149,4 +161,6 @@ class UserRepository {
     // 4. Delete profile and username
     await _remote.deleteProfile(uid);
   }
+
+  Future<void> clearLocalPersonalData() => _database.clearPersonalData();
 }

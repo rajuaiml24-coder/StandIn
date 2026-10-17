@@ -1,10 +1,20 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:drift/drift.dart';
 import 'connection/connection.dart'
     if (dart.library.js_interop) 'connection/web.dart'
     if (dart.library.io) 'connection/native.dart' as impl;
 
 part 'standin_database.g.dart';
+
+String scopedCacheId(String organizationId, String id) =>
+    'standin-cache:${jsonEncode([organizationId, id])}';
+
+String remoteCacheId(String id) {
+  if (!id.startsWith('standin-cache:')) return id;
+  final parts = jsonDecode(id.substring('standin-cache:'.length)) as List;
+  return parts[1] as String;
+}
 
 class AttendanceTable extends Table {
   TextColumn get id => text()();
@@ -148,8 +158,10 @@ class StandInDatabase extends _$StandInDatabase {
   @override
   int get schemaVersion => 1;
 
-  Stream<List<AttendanceTableData>> watchAttendance(String organizationId) =>
-      (select(attendanceTable)..where((row) => row.organizationId.equals(organizationId))..orderBy([(row) => OrderingTerm.desc(row.attendanceDate)])).watch();
+  Stream<List<AttendanceTableData>> watchAttendance(String organizationId, {String? scopeId}) =>
+      (select(attendanceTable)..where((row) => row.organizationId.equals(organizationId) &
+          (scopeId == null ? const Constant(true) : row.scopeId.equals(scopeId)))
+        ..orderBy([(row) => OrderingTerm.desc(row.attendanceDate)])).watch();
 
   Future<void> upsertAttendance(AttendanceTableCompanion row) =>
       into(attendanceTable).insertOnConflictUpdate(row);
@@ -170,30 +182,56 @@ class StandInDatabase extends _$StandInDatabase {
       into(membershipRows).insertOnConflictUpdate(row);
 
   Future<void> savePolicy(OrganizationPolicyRowsCompanion row) =>
-      into(organizationPolicyRows).insertOnConflictUpdate(row);
+      into(organizationPolicyRows).insertOnConflictUpdate(row.copyWith(
+        policyId: Value(scopedCacheId(row.organizationId.value, row.policyId.value)),
+      ));
 
   Future<void> saveCalendar(CalendarRowsCompanion row) =>
-      into(calendarRows).insertOnConflictUpdate(row);
+      into(calendarRows).insertOnConflictUpdate(row.copyWith(
+        id: Value(scopedCacheId(row.organizationId.value, row.id.value)),
+      ));
 
-  Future<CalendarRow?> getCalendarById(String id) =>
-      (select(calendarRows)..where((row) => row.id.equals(id))).getSingleOrNull();
+  Future<CalendarRow?> getCalendarById(String id, {required String organizationId}) async {
+    final scoped = await (select(calendarRows)..where((row) =>
+        row.id.equals(scopedCacheId(organizationId, id)) & row.organizationId.equals(organizationId))).getSingleOrNull();
+    return scoped ?? await (select(calendarRows)..where((row) =>
+        row.id.equals(id) & row.organizationId.equals(organizationId))).getSingleOrNull();
+  }
 
   Future<CalendarRow?> calendarAt(String organizationId, String scopeId, DateTime date) =>
       (select(calendarRows)..where((row) => 
         row.organizationId.equals(organizationId) & 
         row.scopeId.equals(scopeId) &
         row.effectiveFrom.isSmallerOrEqualValue(date)
-      )..orderBy([(row) => OrderingTerm.desc(row.effectiveFrom)])..limit(1)).getSingleOrNull();
+      )..orderBy([(row) => OrderingTerm.desc(row.effectiveFrom),
+        (row) => OrderingTerm.desc(row.id.like('standin-cache:%')),
+        (row) => OrderingTerm.desc(row.updatedAt)])..limit(1)).getSingleOrNull();
 
   Future<OrganizationPolicyRow?> policyAt(String organizationId, String scopeId, DateTime date) =>
       (select(organizationPolicyRows)..where((row) => 
         row.organizationId.equals(organizationId) & 
         row.scopeId.equals(scopeId) &
         row.effectiveFrom.isSmallerOrEqualValue(date)
-      )..orderBy([(row) => OrderingTerm.desc(row.effectiveFrom)])..limit(1)).getSingleOrNull();
+      )..orderBy([(row) => OrderingTerm.desc(row.effectiveFrom),
+        (row) => OrderingTerm.desc(row.policyId.like('standin-cache:%')),
+        (row) => OrderingTerm.desc(row.updatedAt)])..limit(1)).getSingleOrNull();
 
-  Future<OrganizationPolicyRow?> getPolicyById(String id) =>
-      (select(organizationPolicyRows)..where((row) => row.policyId.equals(id))).getSingleOrNull();
+  Future<OrganizationPolicyRow?> getPolicyById(String id, {required String organizationId}) async {
+    final scoped = await (select(organizationPolicyRows)..where((row) =>
+        row.policyId.equals(scopedCacheId(organizationId, id)) & row.organizationId.equals(organizationId))).getSingleOrNull();
+    return scoped ?? await (select(organizationPolicyRows)..where((row) =>
+        row.policyId.equals(id) & row.organizationId.equals(organizationId))).getSingleOrNull();
+  }
+
+  Future<AttendanceTableData?> getAttendance(String id) =>
+      (select(attendanceTable)..where((row) => row.id.equals(id))).getSingleOrNull();
+
+  Future<SyncQueueRow?> getOperation(String id) =>
+      (select(syncQueueRows)..where((row) => row.id.equals(id))).getSingleOrNull();
+
+  Future<DateTime?> nextSyncAttemptAt() =>
+      (select(syncQueueRows)..orderBy([(row) => OrderingTerm.asc(row.nextAttemptAt)])..limit(1))
+          .getSingleOrNull().then((row) => row?.nextAttemptAt);
 
   Future<OrganizationRow?> getOrganization(String id) =>
       (select(organizationRows)..where((row) => row.id.equals(id))).getSingleOrNull();
@@ -225,6 +263,34 @@ class StandInDatabase extends _$StandInDatabase {
       (select(syncQueueRows)..where((row) => row.nextAttemptAt.isSmallerOrEqualValue(now))..orderBy([(row) => OrderingTerm.asc(row.createdAt)])..limit(limit)).get();
 
   Future<void> deleteOperation(String id) => (delete(syncQueueRows)..where((row) => row.id.equals(id))).go();
+
+  Future<void> acknowledgeOperation(SyncQueueRow operation) => transaction(() async {
+    final deleted = await (delete(syncQueueRows)..where((row) =>
+        row.id.equals(operation.id) & row.payload.equals(operation.payload))).go();
+    if (deleted > 0 && operation.operation == 'upsertAttendance') {
+      await (update(attendanceTable)..where((row) => row.id.equals(operation.entityId)))
+          .write(const AttendanceTableCompanion(pendingSync: Value(false), syncError: Value(null)));
+    }
+  });
+
+  Future<void> rescheduleUnchangedOperation(SyncQueueRow operation, int attempts, DateTime nextAttemptAt, String error) =>
+      (update(syncQueueRows)..where((row) => row.id.equals(operation.id) & row.payload.equals(operation.payload)))
+          .write(SyncQueueRowsCompanion(attemptCount: Value(attempts), nextAttemptAt: Value(nextAttemptAt), lastError: Value(error)));
+
+  Future<void> clearPersonalData() => transaction(() async {
+    await delete(syncQueueRows).go();
+    await delete(attendanceTable).go();
+    await delete(followRows).go();
+    await delete(membershipRows).go();
+    await delete(userProfileRows).go();
+    await delete(syncMetadataRows).go();
+  });
+
+  @override
+  Future<void> close() async {
+    await _enqueueController.close();
+    await super.close();
+  }
 
   Future<void> rescheduleOperation(String id, int attemptCount, DateTime nextAttemptAt, String error) =>
       (update(syncQueueRows)..where((row) => row.id.equals(id))).write(SyncQueueRowsCompanion(attemptCount: Value(attemptCount), nextAttemptAt: Value(nextAttemptAt), lastError: Value(error)));

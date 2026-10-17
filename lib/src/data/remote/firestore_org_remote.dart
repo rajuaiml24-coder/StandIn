@@ -163,13 +163,17 @@ class FirestoreOrgRemote {
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
-  Future<void> putMembership(Membership membership) =>
-      _firestore.collection('organizations').doc(membership.organizationId).collection('members').doc(membership.uid).set({
+  Future<void> putMembership(Membership membership) => _firestore.runTransaction((transaction) async {
+    final reference = _firestore.collection('organizations').doc(membership.organizationId).collection('members').doc(membership.uid);
+    final existing = await transaction.get(reference);
+    if (existing.exists) return;
+    transaction.set(reference, {
         'status': membership.status,
         'idNumber': membership.idNumber,
         'joinedAt': Timestamp.fromDate(membership.joinedAt),
         'verifiedAt': membership.verifiedAt != null ? Timestamp.fromDate(membership.verifiedAt!) : null,
-      });
+    });
+  });
 
   Future<void> joinOrganizationAtomic({
     required String orgId,
@@ -206,13 +210,17 @@ class FirestoreOrgRemote {
       final orgRef = _firestore.collection('organizations').doc(orgId);
 
       final memberSnapshot = await transaction.get(memberRef);
+      final organization = await transaction.get(orgRef);
 
       if (memberSnapshot.exists) {
         transaction.delete(memberRef);
-        transaction.update(orgRef, {
-          'followerCount': FieldValue.increment(-1),
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
+        if (organization.exists) {
+          final count = (organization.data()?['followerCount'] as num?)?.toInt() ?? 0;
+          transaction.update(orgRef, {
+            'followerCount': count > 0 ? count - 1 : 0,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
       }
     });
   }
