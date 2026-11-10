@@ -50,6 +50,8 @@ class OnboardingController extends ChangeNotifier {
   final AuthService _authService;
   final UserRepository _userRepository;
   final OrganizationRepository _organizationRepository;
+  OrganizationRepository get organizationRepository => _organizationRepository;
+  String? get uid => _authService.uid;
   final FirestoreAttendanceRemote _attendanceRemote;
   final SyncEngine? _syncEngine;
   bool _disposed = false;
@@ -76,6 +78,7 @@ class OnboardingController extends ChangeNotifier {
   String get displayName => _displayName;
 
   String? _mobile;
+  String? _registrationNumber;
   String? get mobile => _mobile;
 
   String? _username;
@@ -97,11 +100,14 @@ class OnboardingController extends ChangeNotifier {
   AttendancePolicy? get officialPolicy => _officialPolicy;
 
   AttendanceCalendar? _officialCalendar;
+  int _officialCalendarRevision = 0;
   AttendanceCalendar? get officialCalendar => _officialCalendar;
 
   // Temporary policy builder state
   CalculationBasis? _basis;
   CalculationBasis? get basis => _basis;
+  bool _oneVisitFullDay = false;
+  bool get oneVisitFullDay => _oneVisitFullDay;
 
   EvaluationPeriod? _evaluationPeriod;
   EvaluationPeriod? get evaluationPeriod => _evaluationPeriod;
@@ -176,11 +182,15 @@ class OnboardingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> completeProfile(String name, String? mobile) async {
-    if (nameValidator.validate(name).isValid && 
-        (mobile == null || mobile.isEmpty || mobileValidator.validate(mobile).isValid)) {
+  Future<void> completeProfile(String name, String? mobile,
+      {String? registrationNumber}) async {
+    if (nameValidator.validate(name).isValid &&
+        (mobile == null ||
+            mobile.isEmpty ||
+            mobileValidator.validate(mobile).isValid)) {
       _displayName = name.trim();
       _mobile = mobile?.trim();
+      _registrationNumber = registrationNumber?.trim();
       await generateUsernameSuggestion();
       _step = OnboardingStep.usernameGeneration;
       notifyListeners();
@@ -190,7 +200,8 @@ class OnboardingController extends ChangeNotifier {
   Future<void> generateUsernameSuggestion() async {
     _isCheckingUsername = true;
     notifyListeners();
-    final base = _displayName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+    final base =
+        _displayName.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
     final suffix = Random().nextInt(999).toString().padLeft(3, '0');
     final suggestion = '${base.substring(0, min(base.length, 11))}_$suffix';
     _username = suggestion;
@@ -210,35 +221,35 @@ class OnboardingController extends ChangeNotifier {
 
   Future<void> selectOrganization(Organization org) async {
     _selectedOrganization = org;
+    _selectedBranch = null;
+    _selectedSemester = null;
     _isCreatingNewOrganization = false;
-    
+
     _isLoading = true;
     notifyListeners();
-    
+
     try {
       // Refresh Organization metadata with authoritative reconciliation
       _selectedOrganization = await _organizationRepository.getOrganization(
-        org.id, 
+        org.id,
         forceRemote: true,
-        reconcile: true,
+        reconcile: false,
       );
 
       final orgId = _selectedOrganization!.id;
       final activePolicyId = _selectedOrganization!.activePolicyId;
-      final activeCalendarId = _selectedOrganization!.activeCalendarId;
 
       // Direct discovery of organization-level rules (Direct Follow Flow)
       _officialPolicy = await _organizationRepository.getOfficialPolicyForScope(
-        orgId, 
-        'global', 
+        orgId,
+        'global',
         activePolicyId: activePolicyId,
       );
-      _officialCalendar = await _organizationRepository.getOfficialCalendarForScope(
-        orgId, 
-        'global', 
-        activeCalendarId: activeCalendarId,
-      );
-      
+      final snapshot =
+          await _organizationRepository.sharedCalendarSnapshot(orgId);
+      _officialCalendar = snapshot.$1;
+      _officialCalendarRevision = snapshot.$2;
+
       if (_officialPolicy != null) {
         _evaluationPeriod = _officialPolicy!.evaluationPeriod;
         _basis = _officialPolicy!.basis;
@@ -247,11 +258,11 @@ class OnboardingController extends ChangeNotifier {
         _evaluationPeriod = EvaluationPeriod.monthly;
         _basis = CalculationBasis.hours;
       }
-      
+
       // Check for conflict (Existing personal override)
       final resolved = await _organizationRepository.getResolvedPolicy(
-        uid: _authService.uid ?? 'unknown', 
-        organizationId: org.id, 
+        uid: _authService.uid ?? 'unknown',
+        organizationId: org.id,
         scopeId: 'global',
       );
 
@@ -272,11 +283,14 @@ class OnboardingController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void createOrganization(String name, String? branch, AttendancePolicy? policy) {
+  void createOrganization(
+      String name, String? branch, AttendancePolicy? policy) {
     final org = Organization(
       id: 'org-${DateTime.now().millisecondsSinceEpoch}',
       name: name,
-      type: _role == AppRole.student ? OrganizationType.college : OrganizationType.company,
+      type: _role == AppRole.student
+          ? OrganizationType.college
+          : OrganizationType.company,
       branch: branch,
       isVerified: false,
       followerCount: 1,
@@ -284,6 +298,8 @@ class OnboardingController extends ChangeNotifier {
     );
     _selectedOrganization = org;
     _officialPolicy = policy;
+    _officialCalendar = null;
+    _officialCalendarRevision = 0;
 
     // Save metadata immediately for discovery
     final uid = _authService.uid;
@@ -298,13 +314,16 @@ class OnboardingController extends ChangeNotifier {
 
   Future<List<Organization>> searchOrganizations(String query) async {
     if (_role == null) return [];
-    final type = _role == AppRole.student ? OrganizationType.college : OrganizationType.company;
+    final type = _role == AppRole.student
+        ? OrganizationType.college
+        : OrganizationType.company;
     return _organizationRepository.searchOrganizations(query, type);
   }
 
   Future<List<Scope>> getScopesForParent(String? parentId) async {
     if (_selectedOrganization == null) return [];
-    return _organizationRepository.getScopesForParent(_selectedOrganization!.id, parentId);
+    return _organizationRepository.getScopesForParent(
+        _selectedOrganization!.id, parentId);
   }
 
   void selectBranch(Scope? branch) {
@@ -333,7 +352,8 @@ class OnboardingController extends ChangeNotifier {
   }
 
   void createSemester(String name) {
-    final id = Scope.generateId(_selectedOrganization!.id, 'semester', name, _selectedBranch?.id);
+    final id = Scope.generateId(
+        _selectedOrganization!.id, 'semester', name, _selectedBranch?.id);
     final scope = Scope(
       id: id,
       organizationId: _selectedOrganization!.id,
@@ -349,7 +369,7 @@ class OnboardingController extends ChangeNotifier {
   Future<void> completeOrganizationId(String id) async {
     if (idValidator.validate(id).isValid) {
       _identificationNumber = id.trim();
-      
+
       // Simple path: After ID, we either Preview Official Policy or start Personal Setup
       if (_officialPolicy != null) {
         _step = OnboardingStep.policyPreview;
@@ -362,9 +382,15 @@ class OnboardingController extends ChangeNotifier {
 
   Future<void> useOfficialPolicy() async {
     _basis = null; // Clear personal overrides to ensure inheritance
-    
-    final isCustomPeriod = _officialPolicy != null && _evaluationPeriod != _officialPolicy!.evaluationPeriod;
-    
+    _targetPercent = null;
+    _fullUnit = null;
+    _startDate = null;
+    _endDate = null;
+    _isCalendarConfigured = false;
+
+    final isCustomPeriod = _officialPolicy != null &&
+        _evaluationPeriod != _officialPolicy!.evaluationPeriod;
+
     if (isCustomPeriod) {
       _step = OnboardingStep.setupTarget;
       notifyListeners();
@@ -378,12 +404,29 @@ class OnboardingController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> selectScope(Scope? scope) async {
+    _selectedBranch = scope;
+    _selectedSemester = null;
+    final org = _selectedOrganization!;
+    final scopeId = scope?.id ?? 'global';
+    _officialPolicy = await _organizationRepository.getOfficialPolicyForScope(
+        org.id, scopeId);
+    _officialCalendar = await _organizationRepository
+        .getOfficialCalendarForScope(org.id, scopeId);
+    _basis = _officialPolicy?.basis ?? CalculationBasis.days;
+    _evaluationPeriod =
+        _officialPolicy?.evaluationPeriod ?? EvaluationPeriod.monthly;
+    _step = OnboardingStep.policyPreview;
+    notifyListeners();
+  }
+
   Future<void> keepPersonalSettings() async {
     await followOrganization();
   }
 
-  void selectBasis(CalculationBasis basis) {
+  void selectBasis(CalculationBasis basis, {bool oneVisitFullDay = false}) {
     _basis = basis;
+    _oneVisitFullDay = oneVisitFullDay && basis == CalculationBasis.days;
     _step = OnboardingStep.setupPeriod;
     notifyListeners();
   }
@@ -398,10 +441,11 @@ class OnboardingController extends ChangeNotifier {
 
   Future<void> setTarget(double? percent) async {
     _targetPercent = percent;
-    
+
     // For Followers: Target is the last step unless it's a date-based period
     final isFollower = !_isCreatingNewOrganization;
-    final needsDates = _evaluationPeriod == EvaluationPeriod.semester || _evaluationPeriod == EvaluationPeriod.custom;
+    final needsDates = _evaluationPeriod == EvaluationPeriod.semester ||
+        _evaluationPeriod == EvaluationPeriod.custom;
 
     if (isFollower && !needsDates) {
       await followOrganization();
@@ -419,17 +463,18 @@ class OnboardingController extends ChangeNotifier {
   Future<void> setDates(DateTime? start, DateTime? end) async {
     _startDate = start;
     _endDate = end;
-    
+
     if (!_isCreatingNewOrganization) {
       await followOrganization();
       return;
     }
-    
+
     _step = OnboardingStep.setupSchedule;
     notifyListeners();
   }
 
-  Future<void> completeSchedule({double? fullUnit, DateTime? start, DateTime? end}) async {
+  Future<void> completeSchedule(
+      {double? fullUnit, DateTime? start, DateTime? end}) async {
     if (_basis == CalculationBasis.days) {
       _fullUnit = 1.0;
     } else {
@@ -464,6 +509,7 @@ class OnboardingController extends ChangeNotifier {
   }
 
   Future<void> followOrganization() async {
+    if (_isLoading) return;
     final uid = _authService.uid;
     if (uid == null) return;
 
@@ -482,20 +528,21 @@ class OnboardingController extends ChangeNotifier {
       // Prepare personal calendar from official template if following existing org
       var personalWeeklyOffs = _weeklyOffs;
       var personalOffSaturdays = _offSaturdays;
-      var calendarConfigured = _isCalendarConfigured;
 
       if (!_isCreatingNewOrganization && _officialCalendar != null) {
         personalWeeklyOffs = _officialCalendar!.weeklyOffs;
         personalOffSaturdays = _officialCalendar!.offSaturdays;
-        calendarConfigured = true;
       }
 
       // Prepare domain models
-      final followId = 'f-${DateTime.now().millisecondsSinceEpoch}';
-      
+      final followId =
+          Scope.generateId(_selectedOrganization!.id, 'follow', scopeId);
+
       // Determine if we need personal overrides (Only if user changed defaults)
-      final needsBasisOverride = _basis != null && _basis != _officialPolicy?.basis;
-      final needsPeriodOverride = _evaluationPeriod != null && _evaluationPeriod != _officialPolicy?.evaluationPeriod;
+      final needsBasisOverride =
+          _basis != null && _basis != _officialPolicy?.basis;
+      final needsPeriodOverride = _evaluationPeriod != null &&
+          _evaluationPeriod != _officialPolicy?.evaluationPeriod;
 
       final follow = Follow(
         id: followId,
@@ -503,17 +550,29 @@ class OnboardingController extends ChangeNotifier {
         scopeId: scopeId,
         status: 'active',
         followedAt: DateTime.now(),
-        personalBasis: needsBasisOverride ? _basis : null,
-        personalEvaluationPeriod: needsPeriodOverride ? _evaluationPeriod : null,
-        personalTargetPercent: _targetPercent,
-        personalFullUnit: _fullUnit,
-        personalHalfUnit: _fullUnit != null ? _fullUnit! / 2 : null,
-        personalStartDate: _startDate,
-        personalEndDate: _endDate,
-        personalWeeklyOffs: jsonEncode(personalWeeklyOffs),
-        personalOffSaturdays: jsonEncode(personalOffSaturdays),
-        personalHolidays: jsonEncode(_officialCalendar?.holidays.map((holiday) => holiday.toJson()).toList() ?? []),
-        isPersonalCalendarConfigured: calendarConfigured,
+        personalBasis:
+            !_isCreatingNewOrganization && needsBasisOverride ? _basis : null,
+        personalEvaluationPeriod:
+            !_isCreatingNewOrganization && needsPeriodOverride
+                ? _evaluationPeriod
+                : null,
+        personalTargetPercent:
+            _isCreatingNewOrganization ? null : _targetPercent,
+        personalFullUnit: _isCreatingNewOrganization ? null : _fullUnit,
+        personalHalfUnit: !_isCreatingNewOrganization && _fullUnit != null
+            ? _fullUnit! / 2
+            : null,
+        personalStartDate: _isCreatingNewOrganization ? null : _startDate,
+        personalEndDate: _isCreatingNewOrganization ? null : _endDate,
+        personalWeeklyOffs: !_isCreatingNewOrganization && _isCalendarConfigured
+            ? jsonEncode(_weeklyOffs)
+            : null,
+        personalOffSaturdays:
+            !_isCreatingNewOrganization && _isCalendarConfigured
+                ? jsonEncode(_offSaturdays)
+                : null,
+        isPersonalCalendarConfigured:
+            !_isCreatingNewOrganization && _isCalendarConfigured,
       );
 
       final membership = Membership(
@@ -528,34 +587,49 @@ class OnboardingController extends ChangeNotifier {
         uid: uid,
         displayName: _displayName,
         mobile: _mobile,
+        registrationNumber: _registrationNumber,
         role: _role!,
         activeFollowId: followId,
       );
+
+      var acceptedCalendar = (_officialCalendar ??
+              AttendanceCalendar.unconfigured)
+          .copyWith(organizationId: follow.organizationId, scopeId: scopeId);
+      if (follow.isPersonalCalendarConfigured) {
+        acceptedCalendar = acceptedCalendar.copyWith(
+            weeklyOffs: _weeklyOffs,
+            offSaturdays: _offSaturdays,
+            isConfigured: true);
+      }
 
       // 2. Handle Organization Setup vs. Simple Join
       if (_isCreatingNewOrganization) {
         // Full setup for the CREATOR only (Path: Create Org -> Rules -> Create & Follow)
         // No Branch/Semester required for initial creation.
         final List<Scope> newScopes = [];
-        
-        final basis = _basis ?? CalculationBasis.hours;
-        final fullUnit = basis == CalculationBasis.days ? 1.0 : (_fullUnit ?? (basis == CalculationBasis.hours ? 8.0 : 6.0));
 
-        final policy = _officialPolicy ?? AttendancePolicy(
-          id: 'policy-global',
-          version: 1,
-          effectiveFrom: DateTime.now(),
-          state: PolicyState.official,
-          evaluationPeriod: _evaluationPeriod ?? EvaluationPeriod.monthly,
-          basis: basis,
-          fullUnit: fullUnit,
-          halfUnit: fullUnit / 2,
-          minimumPercent: _targetPercent,
-          startDate: _startDate,
-          endDate: _endDate,
-          scopeId: 'global',
-          organizationId: _selectedOrganization!.id,
-        );
+        final basis = _basis ?? CalculationBasis.hours;
+        final fullUnit = basis == CalculationBasis.days
+            ? 1.0
+            : (_fullUnit ?? (basis == CalculationBasis.hours ? 8.0 : 6.0));
+
+        final policy = _officialPolicy ??
+            AttendancePolicy(
+              id: 'policy-global',
+              version: 1,
+              effectiveFrom: DateTime.now(),
+              state: PolicyState.official,
+              evaluationPeriod: _evaluationPeriod ?? EvaluationPeriod.monthly,
+              basis: basis,
+              fullUnit: fullUnit,
+              halfUnit: fullUnit / 2,
+              oneVisitFullDay: _oneVisitFullDay,
+              minimumPercent: _targetPercent,
+              startDate: _startDate,
+              endDate: _endDate,
+              scopeId: 'global',
+              organizationId: _selectedOrganization!.id,
+            );
 
         final calendar = AttendanceCalendar(
           id: 'cal-global',
@@ -567,6 +641,7 @@ class OnboardingController extends ChangeNotifier {
           scopeId: 'global',
           organizationId: _selectedOrganization!.id,
         );
+        acceptedCalendar = calendar;
 
         // ENQUEUE ALL 5: Org, Policy, Calendar, Membership, Follow
         await _organizationRepository.setupOrganization(
@@ -581,20 +656,15 @@ class OnboardingController extends ChangeNotifier {
       } else {
         // Simple join for the FOLLOWER (Path: Search -> Select -> Preview -> Follow)
         // 1. Ensure authoritative metadata (activePolicyId) is cached locally for resolution
-        await _organizationRepository.saveOrganizationMetadata(_selectedOrganization!);
+        await _organizationRepository
+            .saveOrganizationMetadata(_selectedOrganization!);
 
-        // 2. Authoritative Atomic Join (Membership + Follower Count)
-        await _organizationRepository.joinOrganizationAtomic(membership);
-        
+        // The queued follow creates membership and both counters together.
         await _userRepository.saveFollow(uid, follow);
-        
-        // 3. Refresh Organization metadata to get authoritative server-side count
-        _selectedOrganization = await _organizationRepository.getOrganization(
-          _selectedOrganization!.id, 
-          forceRemote: true,
-        );
       }
 
+      await _userRepository.initializeCalendar(uid, followId, acceptedCalendar,
+          reviewedVersion: _officialCalendarRevision);
       // Publish the active follow only after its local context is available.
       await _userRepository.createProfile(profile);
       _step = OnboardingStep.complete;
@@ -626,7 +696,9 @@ class OnboardingController extends ChangeNotifier {
         _step = OnboardingStep.organizationSearch;
         break;
       case OnboardingStep.policyPreview:
-        _step = _isCreatingNewOrganization ? OnboardingStep.organizationCreate : OnboardingStep.organizationSearch;
+        _step = _isCreatingNewOrganization
+            ? OnboardingStep.organizationCreate
+            : OnboardingStep.organizationSearch;
         break;
       case OnboardingStep.setupUnit:
         _step = OnboardingStep.organizationCreate;
@@ -641,7 +713,8 @@ class OnboardingController extends ChangeNotifier {
         _step = OnboardingStep.setupTarget;
         break;
       case OnboardingStep.setupSchedule:
-        _step = (_evaluationPeriod == EvaluationPeriod.semester || _evaluationPeriod == EvaluationPeriod.custom)
+        _step = (_evaluationPeriod == EvaluationPeriod.semester ||
+                _evaluationPeriod == EvaluationPeriod.custom)
             ? OnboardingStep.setupDates
             : OnboardingStep.setupTarget;
         break;
@@ -672,7 +745,8 @@ class OnboardingController extends ChangeNotifier {
       await _syncEngine?.stop();
 
       // 2. Purge Remote Data
-      await _userRepository.purgeRemoteData(uid, _organizationRepository, _attendanceRemote);
+      await _userRepository.purgeRemoteData(
+          uid, _organizationRepository, _attendanceRemote);
       await _userRepository.clearLocalPersonalData();
 
       // 3. Delete Firebase Auth User
@@ -699,6 +773,8 @@ class OnboardingController extends ChangeNotifier {
     _role = null;
     _displayName = '';
     _mobile = null;
+    _registrationNumber = null;
+    _oneVisitFullDay = false;
     _selectedOrganization = null;
     _officialPolicy = null;
     _basis = null;

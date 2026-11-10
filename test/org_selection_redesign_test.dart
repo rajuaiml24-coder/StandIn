@@ -134,9 +134,7 @@ void main() {
 
       // 3. Follow
       await onboarding.useOfficialPolicy();
-      if (onboarding.error != null) {
-        print('Follow Error: ${onboarding.error}');
-      }
+      expect(onboarding.error, isNull);
       expect(onboarding.step, OnboardingStep.complete);
 
       // 4. Verify DB association
@@ -269,6 +267,11 @@ void main() {
       await onboarding.selectOrganization(searchRes.first);
       await onboarding.useOfficialPolicy();
       
+      // Counts change only after the queued follow is accepted by the server.
+      expect((await firestore.collection('organizations').doc('pop2').get()).data()?['followerCount'], 200);
+      final queuedFollow = await database.getFollow((await userRepo.getProfile('user_tester'))!.activeFollowId!);
+      await FirestoreUserRemote(firestore).putFollow('user_tester', UserRepository.followFromRow(queuedFollow!));
+      await orgRepo.getOrganization('pop2', forceRemote: true);
       final updatedPop2 = await firestore.collection('organizations').doc('pop2').get();
       expect(updatedPop2.data()?['followerCount'], 201);
       

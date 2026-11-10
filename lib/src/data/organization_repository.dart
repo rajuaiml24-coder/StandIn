@@ -1,4 +1,6 @@
 import 'dart:convert';
+import '../domain/calendar_updates.dart';
+import '../domain/shared_rules.dart';
 import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart' show debugPrint;
 import '../domain/attendance.dart';
@@ -7,11 +9,36 @@ import 'remote/firestore_org_remote.dart';
 import 'remote/firestore_user_remote.dart';
 
 class OrganizationRepository {
+  Stream<int> watchRuleVersion(String orgId) => _remote.watchRuleVersion(orgId);
+  Future<RuleRevision?> nextRuleRevision(String orgId, int after) =>
+      _remote.nextRuleRevision(orgId, after);
+  Future<(SharedRules, int)> sharedRulesSnapshot(String orgId) =>
+      _remote.sharedRulesSnapshot(orgId);
+  Future<bool> sharedRulePublishingEnabled() =>
+      _remote.sharedRulePublishingEnabled();
+  Future<RuleRevision> publishRules(String orgId, String uid,
+          SharedRules before, SharedRules next, int version, DateTime date) =>
+      _remote.publishRules(orgId, uid, before, next, version, date);
   OrganizationRepository(this._database, this._remote);
   final StandInDatabase _database;
   final FirestoreOrgRemote _remote;
 
-  Future<List<Organization>> searchOrganizations(String query, OrganizationType type) async {
+  String _draftId(String uid, String orgId) => 'owner-draft:$uid:$orgId';
+  Future<Map<String, dynamic>?> readRulesDraft(String uid, String orgId) async {
+    final row = await _database.getCalendarState(_draftId(uid, orgId));
+    return row == null ? null : jsonDecode(row.payload) as Map<String, dynamic>;
+  }
+
+  Future<void> saveRulesDraft(
+          String uid, String orgId, Map<String, dynamic> draft) =>
+      _database.saveCalendarState(_draftId(uid, orgId), jsonEncode(draft));
+  Future<void> removeRulesDraft(String uid, String orgId) =>
+      (_database.delete(_database.calendarStateRows)
+            ..where((row) => row.id.equals(_draftId(uid, orgId))))
+          .go();
+
+  Future<List<Organization>> searchOrganizations(
+      String query, OrganizationType type) async {
     // 1. Check local cache first for empty query (popular orgs might be cached)
     final remote = await _remote.searchOrganizations(query, type);
     for (var org in remote) {
@@ -37,7 +64,9 @@ class OrganizationRepository {
     // Locally increment too
     final local = await _database.getOrganization(orgId);
     if (local != null) {
-      await (_database.update(_database.organizationRows)..where((t) => t.id.equals(orgId))).write(
+      await (_database.update(_database.organizationRows)
+            ..where((t) => t.id.equals(orgId)))
+          .write(
         OrganizationRowsCompanion(
           followerCount: Value(local.followerCount + 1),
           updatedAt: Value(DateTime.now()),
@@ -112,6 +141,9 @@ class OrganizationRepository {
         name: scope.name,
         activePolicyId: Value(scope.activePolicyId),
         activeCalendarId: Value(scope.activeCalendarId),
+        followerCount: Value(scope.followerCount),
+        createdBy: Value(scope.createdBy),
+        isArchived: Value(scope.isArchived),
       ));
     }
     return remote;
@@ -127,6 +159,9 @@ class OrganizationRepository {
         name: scope.name,
         activePolicyId: Value(scope.activePolicyId),
         activeCalendarId: Value(scope.activeCalendarId),
+        followerCount: Value(scope.followerCount),
+        createdBy: Value(scope.createdBy),
+        isArchived: Value(scope.isArchived),
       ));
 
       await _database.enqueue(SyncQueueRowsCompanion.insert(
@@ -141,6 +176,8 @@ class OrganizationRepository {
           'name': scope.name,
           'activePolicyId': scope.activePolicyId,
           'activeCalendarId': scope.activeCalendarId,
+          'createdBy': scope.createdBy,
+          'isArchived': scope.isArchived,
         }),
         nextAttemptAt: DateTime.now(),
         createdAt: DateTime.now(),
@@ -181,8 +218,13 @@ class OrganizationRepository {
           parentId: Value(scope.parentId),
           type: scope.type,
           name: scope.name,
-          activePolicyId: Value(scope.id == policy.scopeId ? policy.id : scope.activePolicyId),
-          activeCalendarId: Value(scope.id == calendar.scopeId ? calendar.id : scope.activeCalendarId),
+          activePolicyId: Value(
+              scope.id == policy.scopeId ? policy.id : scope.activePolicyId),
+          activeCalendarId: Value(scope.id == calendar.scopeId
+              ? calendar.id
+              : scope.activeCalendarId),
+          createdBy: Value(scope.createdBy ?? uid),
+          followerCount: Value(scope.followerCount),
         ));
       }
 
@@ -199,6 +241,7 @@ class OrganizationRepository {
         calculationBasis: policy.basis.name,
         fullUnit: policy.fullUnit,
         halfUnit: policy.halfUnit,
+        creditRules: Value(jsonEncode(policy.toJson())),
         weeklyOffs: Value(jsonEncode(policy.weeklyOffs)),
         startDate: Value(policy.startDate),
         endDate: Value(policy.endDate),
@@ -214,7 +257,8 @@ class OrganizationRepository {
         effectiveFrom: calendar.effectiveFrom,
         weeklyOffs: jsonEncode(calendar.weeklyOffs),
         offSaturdays: jsonEncode(calendar.offSaturdays),
-        holidays: Value(jsonEncode(calendar.holidays.map((h) => h.toJson()).toList())),
+        holidays: Value(
+            jsonEncode(calendar.holidays.map((h) => h.toJson()).toList())),
         isConfigured: Value(calendar.isConfigured),
         updatedAt: DateTime.now(),
       ));
@@ -245,7 +289,8 @@ class OrganizationRepository {
         personalWeeklyOffs: Value(follow.personalWeeklyOffs),
         personalOffSaturdays: Value(follow.personalOffSaturdays),
         personalHolidays: Value(follow.personalHolidays),
-        isPersonalCalendarConfigured: Value(follow.isPersonalCalendarConfigured),
+        isPersonalCalendarConfigured:
+            Value(follow.isPersonalCalendarConfigured),
       ));
 
       // 6. Enqueue Sync Operations
@@ -280,8 +325,12 @@ class OrganizationRepository {
             'parentId': scope.parentId,
             'type': scope.type,
             'name': scope.name,
-            'activePolicyId': scope.id == policy.scopeId ? policy.id : scope.activePolicyId,
-            'activeCalendarId': scope.id == calendar.scopeId ? calendar.id : scope.activeCalendarId,
+            'activePolicyId':
+                scope.id == policy.scopeId ? policy.id : scope.activePolicyId,
+            'activeCalendarId': scope.id == calendar.scopeId
+                ? calendar.id
+                : scope.activeCalendarId,
+            'createdBy': scope.createdBy ?? uid,
           }),
           nextAttemptAt: DateTime.now(),
           createdAt: DateTime.now(),
@@ -296,6 +345,7 @@ class OrganizationRepository {
           'organizationId': org.id,
           'policy': {
             'id': policy.id,
+            'scopeId': policy.scopeId,
             'version': policy.version,
             'effectiveFrom': policy.effectiveFrom.toIso8601String(),
             'state': policy.state.name,
@@ -304,6 +354,10 @@ class OrganizationRepository {
             'basis': policy.basis.name,
             'fullUnit': policy.fullUnit,
             'halfUnit': policy.halfUnit,
+            'leaveTreatment': policy.leaveTreatment.name,
+            'weekOffCredit': policy.weekOffCredit,
+            'oneVisitFullDay': policy.oneVisitFullDay,
+            'holidayCredit': policy.holidayCredit,
             'weeklyOffs': policy.weeklyOffs,
             'startDate': policy.startDate?.toIso8601String(),
             'endDate': policy.endDate?.toIso8601String(),
@@ -321,6 +375,7 @@ class OrganizationRepository {
           'organizationId': org.id,
           'calendar': {
             'id': calendar.id,
+            'scopeId': calendar.scopeId,
             'version': calendar.version,
             'effectiveFrom': calendar.effectiveFrom.toIso8601String(),
             'weeklyOffs': calendar.weeklyOffs,
@@ -335,7 +390,7 @@ class OrganizationRepository {
 
       await _database.enqueue(SyncQueueRowsCompanion.insert(
         id: 'membership:$uid:${org.id}',
-        operation: 'putMembership',
+        operation: 'joinOrganizationAtomic',
         entityId: '$uid:${org.id}',
         payload: jsonEncode({
           'uid': uid,
@@ -386,11 +441,23 @@ class OrganizationRepository {
     String? followId,
   }) async {
     // 0. Fetch authoritative metadata
+    if (followId != null) {
+      final stored = await _database.getCalendarState(followId);
+      if (stored != null) {
+        final state = PersonalCalendarState.fromJson(
+            jsonDecode(stored.payload) as Map<String, dynamic>);
+        if (state.baseline.organizationId == organizationId &&
+            state.baseline.scopeId == scopeId &&
+            state.policy != null) {
+          return state.policyAt(DateTime.now());
+        }
+      }
+    }
     final localOrg = await _database.getOrganization(organizationId);
     String? authoritativePolicyId = localOrg?.activePolicyId;
-    
+
     // 0b. Critical Fallback: Remote fetch if local metadata is missing (ensure activePolicyId is known)
-    if (localOrg == null) {
+    if (localOrg == null && !Follow.isPersonalOrganization(organizationId)) {
       final remoteOrg = await _remote.getOrganization(organizationId);
       if (remoteOrg != null) {
         await saveOrganizationMetadata(remoteOrg);
@@ -399,7 +466,10 @@ class OrganizationRepository {
     }
 
     // 1. Resolve Official Hierarchy
-    var policy = await _getPolicyHierarchy(organizationId, scopeId, activePolicyId: authoritativePolicyId);
+    var policy = Follow.isPersonalOrganization(organizationId)
+        ? null
+        : await _getPolicyHierarchy(organizationId, scopeId,
+            activePolicyId: authoritativePolicyId);
 
     // 2. Apply Personal Overrides
     // If followId is null, try to find the user's current active follow for this organization
@@ -416,42 +486,60 @@ class OrganizationRepository {
 
     if (effectiveFollowId != null) {
       final follow = await _database.getFollow(effectiveFollowId);
-      if (follow != null && follow.organizationId == organizationId && follow.scopeId == scopeId &&
-          (policy == null || follow.personalBasis != null || follow.personalTargetPercent != null || follow.personalEvaluationPeriod != null)) {
+      if (follow != null &&
+          follow.organizationId == organizationId &&
+          follow.scopeId == scopeId &&
+          (policy == null ||
+              follow.personalBasis != null ||
+              follow.personalTargetPercent != null ||
+              follow.personalEvaluationPeriod != null ||
+              follow.personalFullUnit != null ||
+              follow.personalHalfUnit != null ||
+              follow.personalStartDate != null ||
+              follow.personalEndDate != null)) {
         final basis = follow.personalBasis != null
             ? CalculationBasis.values.byName(follow.personalBasis!)
             : policy?.basis ?? CalculationBasis.hours;
         final basisChanged = policy != null && basis != policy.basis;
-        final defaultFull = basis == CalculationBasis.days ? 1.0 : (basis == CalculationBasis.periods ? 6.0 : 8.0);
-        final full = follow.personalFullUnit ?? (basisChanged ? defaultFull : policy?.fullUnit ?? defaultFull);
-        final half = follow.personalHalfUnit ?? (basisChanged ? full / 2 : policy?.halfUnit ?? full / 2);
-        policy = (policy ?? AttendancePolicy(
-          id: 'personal-${follow.id}',
-          version: 1,
-          effectiveFrom: follow.followedAt,
+        final defaultFull = basis == CalculationBasis.days
+            ? 1.0
+            : (basis == CalculationBasis.periods ? 6.0 : 8.0);
+        final full = follow.personalFullUnit ??
+            (basisChanged ? defaultFull : policy?.fullUnit ?? defaultFull);
+        final half = follow.personalHalfUnit ??
+            (basisChanged ? full / 2 : policy?.halfUnit ?? full / 2);
+        policy = (policy ??
+                AttendancePolicy(
+                  id: 'personal-${follow.id}',
+                  version: 1,
+                  effectiveFrom: follow.followedAt,
+                  state: PolicyState.personal,
+                  evaluationPeriod: follow.personalEvaluationPeriod != null
+                      ? EvaluationPeriod.values
+                          .byName(follow.personalEvaluationPeriod!)
+                      : EvaluationPeriod.monthly,
+                  basis: follow.personalBasis != null
+                      ? CalculationBasis.values.byName(follow.personalBasis!)
+                      : CalculationBasis.hours,
+                  fullUnit: full,
+                  halfUnit: half,
+                  organizationId: organizationId,
+                  scopeId: scopeId,
+                ))
+            .copyWith(
           state: PolicyState.personal,
-          evaluationPeriod: follow.personalEvaluationPeriod != null 
-              ? EvaluationPeriod.values.byName(follow.personalEvaluationPeriod!) 
-              : EvaluationPeriod.monthly,
-          basis: follow.personalBasis != null 
-              ? CalculationBasis.values.byName(follow.personalBasis!) 
-              : CalculationBasis.hours,
-          fullUnit: full,
-          halfUnit: half,
-          organizationId: organizationId,
-          scopeId: scopeId,
-        )).copyWith(
-          state: PolicyState.personal,
-          minimumPercent: follow.personalTargetPercent ?? policy?.minimumPercent,
-          basis: follow.personalBasis != null 
-              ? CalculationBasis.values.byName(follow.personalBasis!) 
+          minimumPercent:
+              follow.personalTargetPercent ?? policy?.minimumPercent,
+          basis: follow.personalBasis != null
+              ? CalculationBasis.values.byName(follow.personalBasis!)
               : policy?.basis,
-          evaluationPeriod: follow.personalEvaluationPeriod != null 
-              ? EvaluationPeriod.values.byName(follow.personalEvaluationPeriod!) 
+          evaluationPeriod: follow.personalEvaluationPeriod != null
+              ? EvaluationPeriod.values.byName(follow.personalEvaluationPeriod!)
               : policy?.evaluationPeriod,
           fullUnit: full,
           halfUnit: half,
           startDate: follow.personalStartDate ?? policy?.startDate,
+          oneVisitFullDay: !basisChanged && (policy?.oneVisitFullDay ?? false),
           endDate: follow.personalEndDate ?? policy?.endDate,
         );
       }
@@ -461,11 +549,14 @@ class OrganizationRepository {
   }
 
   /// Helper to check if a conflict exists between personal settings and official policy
-  Future<AttendancePolicy?> getOfficialPolicyForScope(String orgId, String scopeId, {String? activePolicyId}) async {
+  Future<AttendancePolicy?> getOfficialPolicyForScope(
+      String orgId, String scopeId,
+      {String? activePolicyId}) async {
     return _getPolicyHierarchy(orgId, scopeId, activePolicyId: activePolicyId);
   }
 
-  Future<AttendancePolicy?> _getPolicyHierarchy(String orgId, String scopeId, {String? activePolicyId}) async {
+  Future<AttendancePolicy?> _getPolicyHierarchy(String orgId, String scopeId,
+      {String? activePolicyId}) async {
     // 1. Specific Scope (if provided and not 'global')
     if (scopeId != 'global' && scopeId != orgId) {
       var policy = await _getCachedOrRemotePolicy(orgId, scopeId);
@@ -481,25 +572,40 @@ class OrganizationRepository {
     }
 
     // 3. Organization Global
-    final global = await _getCachedOrRemotePolicy(orgId, 'global', explicitId: activePolicyId);
+    final global = await _getCachedOrRemotePolicy(orgId, 'global',
+        explicitId: activePolicyId);
     return global?.copyWith(organizationId: orgId);
   }
 
-  Future<AttendancePolicy?> _getCachedOrRemotePolicy(String orgId, String scopeId, {String? explicitId}) async {
+  Future<AttendancePolicy?> _getCachedOrRemotePolicy(
+      String orgId, String scopeId,
+      {String? explicitId}) async {
+    if (scopeId != 'global') {
+      explicitId ??= (await _database.getScope(scopeId))?.activePolicyId;
+    }
     // 1. Authoritative Lookup by ID (Bypasses timestamp comparison)
     if (explicitId != null) {
-      final authoritative = await _database.getPolicyById(explicitId, organizationId: orgId);
+      final authoritative =
+          await _database.getPolicyById(explicitId, organizationId: orgId);
       if (authoritative != null) return _toPolicy(authoritative);
     }
 
+    if (explicitId != null) {
+      final authoritative = await _remote.getPolicy(orgId, explicitId);
+      if (authoritative != null) {
+        await cachePolicy(orgId, authoritative);
+        return authoritative;
+      }
+    }
     // 2. Historical Lookup by Effective Date
     final cached = await _database.policyAt(orgId, scopeId, DateTime.now());
     if (cached != null) {
       return _toPolicy(cached);
     }
-    
+
     // 3. Remote fetch (using authoritative ID if available)
-    final policyId = explicitId ?? (scopeId == 'global' ? 'policy-global' : 'scope-$scopeId'); 
+    final policyId = explicitId ??
+        (scopeId == 'global' ? 'policy-global' : 'scope-$scopeId');
     final remote = await _remote.getPolicy(orgId, policyId);
     if (remote != null) {
       await cachePolicy(orgId, remote);
@@ -520,6 +626,7 @@ class OrganizationRepository {
       calculationBasis: policy.basis.name,
       fullUnit: policy.fullUnit,
       halfUnit: policy.halfUnit,
+      creditRules: Value(jsonEncode(policy.toJson())),
       weeklyOffs: Value(jsonEncode(policy.weeklyOffs)),
       startDate: Value(policy.startDate),
       endDate: Value(policy.endDate),
@@ -527,22 +634,28 @@ class OrganizationRepository {
     ));
   }
 
-  AttendancePolicy _toPolicy(OrganizationPolicyRow row) => AttendancePolicy(
-    id: remoteCacheId(row.policyId),
-    version: row.version,
-    effectiveFrom: row.effectiveFrom,
-    state: PolicyState.values.byName(row.state),
-    evaluationPeriod: EvaluationPeriod.values.byName(row.evaluationPeriod),
-    minimumPercent: row.minimumPercent,
-    basis: CalculationBasis.values.byName(row.calculationBasis),
-    fullUnit: row.fullUnit,
-    halfUnit: row.halfUnit,
-    startDate: row.startDate,
-    endDate: row.endDate,
-    scopeId: row.scopeId,
-    organizationId: row.organizationId,
-    weeklyOffs: (jsonDecode(row.weeklyOffs) as List).cast<int>(),
-  );
+  AttendancePolicy _toPolicy(OrganizationPolicyRow row) => policyFromRow(row);
+  static AttendancePolicy policyFromRow(OrganizationPolicyRow row) =>
+      row.creditRules != null
+          ? AttendancePolicy.fromJson(
+              jsonDecode(row.creditRules!) as Map<String, dynamic>)
+          : AttendancePolicy(
+              id: remoteCacheId(row.policyId),
+              version: row.version,
+              effectiveFrom: row.effectiveFrom,
+              state: PolicyState.values.byName(row.state),
+              evaluationPeriod:
+                  EvaluationPeriod.values.byName(row.evaluationPeriod),
+              minimumPercent: row.minimumPercent,
+              basis: CalculationBasis.values.byName(row.calculationBasis),
+              fullUnit: row.fullUnit,
+              halfUnit: row.halfUnit,
+              startDate: row.startDate,
+              endDate: row.endDate,
+              scopeId: row.scopeId,
+              organizationId: row.organizationId,
+              weeklyOffs: (jsonDecode(row.weeklyOffs) as List).cast<int>(),
+            );
 
   /// Deterministic Calendar Resolution:
   /// Personal User Settings -> Specific Scope -> Parent Scope -> Org
@@ -552,29 +665,54 @@ class OrganizationRepository {
     required String scopeId,
     String? followId,
   }) async {
+    if (followId != null) {
+      final state = await _database.getCalendarState(followId);
+      if (state != null) {
+        return PersonalCalendarState.fromJson(
+                jsonDecode(state.payload) as Map<String, dynamic>)
+            .calendar;
+      }
+    }
     // 0. Fetch authoritative metadata
     final org = await _database.getOrganization(organizationId);
 
     // 1. Check Personal Configuration (stored in Follow)
     if (followId != null) {
       final follow = await _database.getFollow(followId);
-      if (follow != null && follow.organizationId == organizationId &&
-          follow.scopeId == scopeId && follow.isPersonalCalendarConfigured) {
-        final personalWeeklyOffs = follow.personalWeeklyOffs != null 
-            ? (jsonDecode(follow.personalWeeklyOffs!) as List).cast<int>() 
+      if (follow != null &&
+          follow.organizationId == organizationId &&
+          follow.scopeId == scopeId &&
+          follow.isPersonalCalendarConfigured) {
+        final personalWeeklyOffs = follow.personalWeeklyOffs != null
+            ? (jsonDecode(follow.personalWeeklyOffs!) as List).cast<int>()
             : <int>[];
-        final personalOffSaturdays = follow.personalOffSaturdays != null 
-            ? (jsonDecode(follow.personalOffSaturdays!) as List).cast<int>() 
+        final personalOffSaturdays = follow.personalOffSaturdays != null
+            ? (jsonDecode(follow.personalOffSaturdays!) as List).cast<int>()
             : <int>[];
-        final personalHolidays = follow.personalHolidays != null
-            ? (jsonDecode(follow.personalHolidays!) as List).map((h) => Holiday.fromJson(h as Map<String, dynamic>)).toList() 
-            : <Holiday>[];
-            
+        final holidaySettings = follow.personalHolidays == null
+            ? []
+            : jsonDecode(follow.personalHolidays!);
+        final replaceHolidays =
+            holidaySettings is Map && holidaySettings['replace'] == true;
+        final holidayList = holidaySettings is Map
+            ? holidaySettings['holidays'] as List
+            : holidaySettings as List;
+        final personalHolidays = holidayList
+            .map((h) => Holiday.fromJson(h as Map<String, dynamic>))
+            .toList();
+
         // Older follows saved [] even when they intended to inherit holidays.
-        final inherited = await _getCalendarHierarchy(organizationId, scopeId, activeCalendarId: org?.activeCalendarId);
+        final inherited =
+            Follow.isPersonalOrganization(organizationId) || replaceHolidays
+                ? AttendanceCalendar.unconfigured
+                : await _getCalendarHierarchy(organizationId, scopeId,
+                    activeCalendarId: org?.activeCalendarId);
         final holidays = <String, Holiday>{
-          for (final holiday in inherited.holidays) holiday.date.toIso8601String().substring(0, 10): holiday,
-          for (final holiday in personalHolidays) holiday.date.toIso8601String().substring(0, 10): holiday,
+          if (!replaceHolidays)
+            for (final holiday in inherited.holidays)
+              holiday.date.toIso8601String().substring(0, 10): holiday,
+          for (final holiday in personalHolidays)
+            holiday.date.toIso8601String().substring(0, 10): holiday,
         };
         return AttendanceCalendar(
           id: 'personal-cal-${follow.id}',
@@ -590,14 +728,22 @@ class OrganizationRepository {
       }
     }
 
-    return _getCalendarHierarchy(organizationId, scopeId, activeCalendarId: org?.activeCalendarId);
+    if (Follow.isPersonalOrganization(organizationId)) {
+      return AttendanceCalendar.unconfigured;
+    }
+    return _getCalendarHierarchy(organizationId, scopeId,
+        activeCalendarId: org?.activeCalendarId);
   }
 
-  Future<AttendanceCalendar> getOfficialCalendarForScope(String orgId, String scopeId, {String? activeCalendarId}) async {
-    return _getCalendarHierarchy(orgId, scopeId, activeCalendarId: activeCalendarId);
+  Future<AttendanceCalendar> getOfficialCalendarForScope(
+      String orgId, String scopeId,
+      {String? activeCalendarId}) async {
+    return _getCalendarHierarchy(orgId, scopeId,
+        activeCalendarId: activeCalendarId);
   }
 
-  Future<AttendanceCalendar> _getCalendarHierarchy(String orgId, String scopeId, {String? activeCalendarId}) async {
+  Future<AttendanceCalendar> _getCalendarHierarchy(String orgId, String scopeId,
+      {String? activeCalendarId}) async {
     // 1. Specific Scope (if provided and not 'global')
     if (scopeId != 'global' && scopeId != orgId) {
       var calendar = await _getCachedOrRemoteCalendar(orgId, scopeId);
@@ -606,26 +752,41 @@ class OrganizationRepository {
       // 2. Parent Scope (Recursive)
       var currentScope = await _database.getScope(scopeId);
       while (currentScope?.parentId != null) {
-        calendar = await _getCachedOrRemoteCalendar(orgId, currentScope!.parentId!);
+        calendar =
+            await _getCachedOrRemoteCalendar(orgId, currentScope!.parentId!);
         if (calendar != null) return calendar.copyWith(organizationId: orgId);
         currentScope = await _database.getScope(currentScope.parentId!);
       }
     }
 
     // 3. Organization Global
-    final global = await _getCachedOrRemoteCalendar(orgId, 'global', explicitId: activeCalendarId);
+    final global = await _getCachedOrRemoteCalendar(orgId, 'global',
+        explicitId: activeCalendarId);
     if (global != null) return global.copyWith(organizationId: orgId);
 
     return AttendanceCalendar.unconfigured;
   }
 
-  Future<AttendanceCalendar?> _getCachedOrRemoteCalendar(String orgId, String scopeId, {String? explicitId}) async {
+  Future<AttendanceCalendar?> _getCachedOrRemoteCalendar(
+      String orgId, String scopeId,
+      {String? explicitId}) async {
+    if (scopeId != 'global') {
+      explicitId ??= (await _database.getScope(scopeId))?.activeCalendarId;
+    }
     // 1. Authoritative Lookup by ID
     if (explicitId != null) {
-      final authoritative = await _database.getCalendarById(explicitId, organizationId: orgId);
+      final authoritative =
+          await _database.getCalendarById(explicitId, organizationId: orgId);
       if (authoritative != null) return _toCalendar(authoritative);
     }
 
+    if (explicitId != null) {
+      final authoritative = await _remote.getCalendar(orgId, explicitId);
+      if (authoritative != null) {
+        await saveCalendar(orgId, authoritative);
+        return authoritative;
+      }
+    }
     // 2. Historical Lookup
     final cached = await _database.calendarAt(orgId, scopeId, DateTime.now());
     if (cached != null) {
@@ -633,7 +794,8 @@ class OrganizationRepository {
     }
 
     // 3. Remote fetch
-    final calendarId = explicitId ?? (scopeId == 'global' ? 'cal-global' : 'cal-$scopeId');
+    final calendarId =
+        explicitId ?? (scopeId == 'global' ? 'cal-global' : 'cal-$scopeId');
     final remote = await _remote.getCalendar(orgId, calendarId);
     if (remote != null) {
       await saveCalendar(orgId, remote);
@@ -642,29 +804,44 @@ class OrganizationRepository {
   }
 
   /// Recover full hierarchy and rules for a given follow ID (New Device path)
-  Future<void> syncFollowContext(String uid, String followId, {required FirestoreUserRemote userRemote}) async {
+  Future<void> syncFollowContext(String uid, String followId,
+      {required FirestoreUserRemote userRemote}) async {
     final follow = await userRemote.getFollow(uid, followId);
     if (follow == null) return;
 
     // 1. Save Follow locally
-    await _database.upsertFollow(FollowRowsCompanion.insert(
-      id: follow.id,
-      organizationId: follow.organizationId,
-      scopeId: follow.scopeId,
-      status: follow.status,
-      followedAt: follow.followedAt,
-      personalTargetPercent: Value(follow.personalTargetPercent),
-      personalBasis: Value(follow.personalBasis?.name),
-      personalEvaluationPeriod: Value(follow.personalEvaluationPeriod?.name),
-      personalFullUnit: Value(follow.personalFullUnit),
-      personalHalfUnit: Value(follow.personalHalfUnit),
-      personalStartDate: Value(follow.personalStartDate),
-      personalEndDate: Value(follow.personalEndDate),
-      personalWeeklyOffs: Value(follow.personalWeeklyOffs),
-      personalOffSaturdays: Value(follow.personalOffSaturdays),
-      personalHolidays: Value(follow.personalHolidays),
-      isPersonalCalendarConfigured: Value(follow.isPersonalCalendarConfigured),
-    ));
+    if (await _database.getOperation('follow:$followId') == null) {
+      await _database.upsertFollow(FollowRowsCompanion.insert(
+        id: follow.id,
+        organizationId: follow.organizationId,
+        scopeId: follow.scopeId,
+        status: follow.status,
+        followedAt: follow.followedAt,
+        personalTargetPercent: Value(follow.personalTargetPercent),
+        personalBasis: Value(follow.personalBasis?.name),
+        personalEvaluationPeriod: Value(follow.personalEvaluationPeriod?.name),
+        personalFullUnit: Value(follow.personalFullUnit),
+        personalHalfUnit: Value(follow.personalHalfUnit),
+        personalStartDate: Value(follow.personalStartDate),
+        personalEndDate: Value(follow.personalEndDate),
+        personalWeeklyOffs: Value(follow.personalWeeklyOffs),
+        personalOffSaturdays: Value(follow.personalOffSaturdays),
+        personalHolidays: Value(follow.personalHolidays),
+        isPersonalCalendarConfigured:
+            Value(follow.isPersonalCalendarConfigured),
+      ));
+    }
+
+    if (follow.isPersonalCalculation) {
+      final profile = await _database.getUserProfile(uid);
+      await saveOrganizationMetadata(Organization(
+          id: follow.organizationId,
+          name: 'Custom calculation',
+          type: profile?.role == 'employee'
+              ? OrganizationType.company
+              : OrganizationType.college));
+      return;
+    }
 
     // 2. Fetch Organization
     final org = await _remote.getOrganization(follow.organizationId);
@@ -684,28 +861,27 @@ class OrganizationRepository {
 
     // 3. Fetch Scope Hierarchy recursively
     String? currentScopeId = follow.scopeId;
-    while (currentScopeId != null && currentScopeId != 'global' && currentScopeId != follow.organizationId) {
-      final scope = await _remote.getScope(follow.organizationId, currentScopeId);
+    while (currentScopeId != null &&
+        currentScopeId != 'global' &&
+        currentScopeId != follow.organizationId) {
+      final scope =
+          await _remote.getScope(follow.organizationId, currentScopeId);
       if (scope == null) break;
 
-      await _database.upsertScope(ScopeRowsCompanion.insert(
-        id: scope.id,
-        organizationId: scope.organizationId,
-        parentId: Value(scope.parentId),
-        type: scope.type,
-        name: scope.name,
-        activePolicyId: Value(scope.activePolicyId),
-        activeCalendarId: Value(scope.activeCalendarId),
-      ));
+      await cacheScope(scope);
 
       // Resolve Policy and Calendar for this specific scope
       if (scope.activePolicyId != null) {
-        final policy = await _remote.getPolicy(follow.organizationId, scope.activePolicyId!);
+        final policy = await _remote.getPolicy(
+            follow.organizationId, scope.activePolicyId!);
         if (policy != null) await cachePolicy(follow.organizationId, policy);
       }
       if (scope.activeCalendarId != null) {
-        final calendar = await _remote.getCalendar(follow.organizationId, scope.activeCalendarId!);
-        if (calendar != null) await saveCalendar(follow.organizationId, calendar);
+        final calendar = await _remote.getCalendar(
+            follow.organizationId, scope.activeCalendarId!);
+        if (calendar != null) {
+          await saveCalendar(follow.organizationId, calendar);
+        }
       }
 
       currentScopeId = scope.parentId;
@@ -713,19 +889,23 @@ class OrganizationRepository {
 
     // 4. Resolve Organization Global rules as fallback
     final globalPolicyId = org?.activePolicyId ?? 'policy-global';
-    final orgRules = await _remote.getPolicy(follow.organizationId, globalPolicyId);
+    final orgRules =
+        await _remote.getPolicy(follow.organizationId, globalPolicyId);
     if (orgRules != null) await cachePolicy(follow.organizationId, orgRules);
-    
+
     final globalCalId = org?.activeCalendarId ?? 'cal-global';
-    final orgCal = await _remote.getCalendar(follow.organizationId, globalCalId);
+    final orgCal =
+        await _remote.getCalendar(follow.organizationId, globalCalId);
     if (orgCal != null) await saveCalendar(follow.organizationId, orgCal);
   }
 
   AttendanceCalendar _toCalendar(CalendarRow row) {
     final weeklyOffs = (jsonDecode(row.weeklyOffs) as List).cast<int>();
     final offSaturdays = (jsonDecode(row.offSaturdays) as List).cast<int>();
-    final holidays = row.holidays != null 
-        ? (jsonDecode(row.holidays!) as List).map((h) => Holiday.fromJson(h as Map<String, dynamic>)).toList() 
+    final holidays = row.holidays != null
+        ? (jsonDecode(row.holidays!) as List)
+            .map((h) => Holiday.fromJson(h as Map<String, dynamic>))
+            .toList()
         : <Holiday>[];
 
     return AttendanceCalendar(
@@ -741,7 +921,17 @@ class OrganizationRepository {
     );
   }
 
-  Future<Organization?> getOrganization(String id, {bool forceRemote = false, bool reconcile = false}) async {
+  Future<Organization?> getOrganization(String id,
+      {bool forceRemote = false, bool reconcile = false}) async {
+    if (Follow.isPersonalOrganization(id)) {
+      final local = await _database.getOrganization(id);
+      return local == null
+          ? Organization(
+              id: id,
+              name: 'Custom calculation',
+              type: OrganizationType.college)
+          : _toOrganization(local);
+    }
     if (reconcile) {
       await reconcileFollowerCount(id);
       forceRemote = true; // Always fetch fresh data after reconciliation
@@ -761,30 +951,33 @@ class OrganizationRepository {
 
   Future<void> reconcileFollowerCount(String orgId) async {
     try {
-      final authoritativeCount = await _remote.getAuthoritativeMemberCount(orgId);
+      final authoritativeCount =
+          await _remote.getAuthoritativeMemberCount(orgId);
       final remoteOrg = await _remote.getOrganization(orgId);
-      
+
       if (remoteOrg != null && remoteOrg.followerCount != authoritativeCount) {
-        debugPrint('[OrganizationRepository] Reconciling count for $orgId: ${remoteOrg.followerCount} -> $authoritativeCount');
+        debugPrint(
+            '[OrganizationRepository] Reconciling count for $orgId: ${remoteOrg.followerCount} -> $authoritativeCount');
         await _remote.updateFollowerCount(orgId, authoritativeCount);
       }
     } catch (e) {
-      debugPrint('[OrganizationRepository] Reconciliation failed for $orgId: $e');
+      debugPrint(
+          '[OrganizationRepository] Reconciliation failed for $orgId: $e');
     }
   }
 
   Organization _toOrganization(OrganizationRow row) => Organization(
-    id: row.id,
-    name: row.name,
-    type: OrganizationType.values.byName(row.type),
-    branch: row.branch,
-    isVerified: row.isVerified,
-    isHolidayCalendarConfigured: row.isHolidayCalendarConfigured,
-    followerCount: row.followerCount,
-    activePolicyId: row.activePolicyId,
-    activeCalendarId: row.activeCalendarId,
-    createdBy: row.createdBy,
-  );
+        id: row.id,
+        name: row.name,
+        type: OrganizationType.values.byName(row.type),
+        branch: row.branch,
+        isVerified: row.isVerified,
+        isHolidayCalendarConfigured: row.isHolidayCalendarConfigured,
+        followerCount: row.followerCount,
+        activePolicyId: row.activePolicyId,
+        activeCalendarId: row.activeCalendarId,
+        createdBy: row.createdBy,
+      );
 
   Future<void> saveMembership(Membership membership) async {
     await _database.transaction(() async {
@@ -836,7 +1029,8 @@ class OrganizationRepository {
   Future<void> saveCalendar(String orgId, AttendanceCalendar calendar) async {
     final weeklyOffsJson = jsonEncode(calendar.weeklyOffs);
     final offSaturdaysJson = jsonEncode(calendar.offSaturdays);
-    final holidaysJson = jsonEncode(calendar.holidays.map((h) => h.toJson()).toList());
+    final holidaysJson =
+        jsonEncode(calendar.holidays.map((h) => h.toJson()).toList());
 
     await _database.saveCalendar(CalendarRowsCompanion.insert(
       id: calendar.id,
@@ -855,6 +1049,73 @@ class OrganizationRepository {
   Future<void> removeMembership(String orgId, String uid) async {
     await _remote.leaveOrganizationAtomic(orgId: orgId, uid: uid);
     // Also remove locally
-    await (_database.delete(_database.membershipRows)..where((row) => row.uid.equals(uid) & row.organizationId.equals(orgId))).go();
+    await (_database.delete(_database.membershipRows)
+          ..where(
+              (row) => row.uid.equals(uid) & row.organizationId.equals(orgId)))
+        .go();
+  }
+
+  Future<void> publishScopeRules(
+      Scope scope, AttendancePolicy policy, AttendanceCalendar calendar) async {
+    await _remote.publishScopeRules(scope, policy, calendar);
+    await _database.transaction(() async {
+      await cacheScope(scope);
+      await cachePolicy(scope.organizationId, policy);
+      await saveCalendar(scope.organizationId, calendar);
+      await (_database.update(_database.followRows)
+            ..where((row) =>
+                row.organizationId.equals(scope.organizationId) &
+                row.status.equals('active')))
+          .write(const FollowRowsCompanion(status: Value('active')));
+    });
+  }
+
+  Future<void> cacheScope(Scope scope) =>
+      _database.upsertScope(ScopeRowsCompanion.insert(
+        id: scope.id,
+        organizationId: scope.organizationId,
+        parentId: Value(scope.parentId),
+        type: scope.type,
+        name: scope.name,
+        activePolicyId: Value(scope.activePolicyId),
+        activeCalendarId: Value(scope.activeCalendarId),
+        followerCount: Value(scope.followerCount),
+        createdBy: Value(scope.createdBy),
+        isArchived: Value(scope.isArchived),
+      ));
+
+  Future<int> calendarRevisionVersion(String orgId) =>
+      _remote.calendarRevisionVersion(orgId);
+  Stream<int> watchCalendarRevisionVersion(String orgId) =>
+      _remote.watchCalendarRevisionVersion(orgId);
+  Future<(AttendanceCalendar, int)> sharedCalendarSnapshot(String orgId) async {
+    final snapshot = await _remote.sharedCalendarSnapshot(orgId);
+    await saveOrganizationMetadata(snapshot.$1);
+    return (snapshot.$2, snapshot.$3);
+  }
+
+  Future<CalendarRevision?> nextCalendarRevision(String orgId, int after) =>
+      _remote.nextCalendarRevision(orgId, after);
+  Future<AttendanceCalendar> sharedCalendar(String orgId) async {
+    final org = await _remote.getOrganization(orgId);
+    if (org == null) throw StateError('Organization is unavailable');
+    await saveOrganizationMetadata(org);
+    if (org.activeCalendarId == null) {
+      return AttendanceCalendar.unconfigured
+          .copyWith(organizationId: orgId, scopeId: 'global');
+    }
+    return await _remote.getCalendar(orgId, org.activeCalendarId!) ??
+        AttendanceCalendar.unconfigured
+            .copyWith(organizationId: orgId, scopeId: 'global');
+  }
+
+  Future<CalendarRevision> publishCalendarHolidays(String orgId, String uid,
+      AttendanceCalendar base, List<Holiday> holidays) async {
+    final revision =
+        await _remote.publishCalendarHolidays(orgId, uid, base, holidays);
+    await saveCalendar(orgId, revision.calendar);
+    final org = await _remote.getOrganization(orgId);
+    if (org != null) await saveOrganizationMetadata(org);
+    return revision;
   }
 }

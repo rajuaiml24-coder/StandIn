@@ -8,9 +8,14 @@ import 'package:standin/src/data/remote/firestore_attendance_remote.dart';
 import 'package:standin/src/domain/attendance.dart';
 
 class MockAuthService extends Mock implements AuthService {}
+
 class MockUserRepository extends Mock implements UserRepository {}
-class MockOrganizationRepository extends Mock implements OrganizationRepository {}
-class MockFirestoreAttendanceRemote extends Mock implements FirestoreAttendanceRemote {}
+
+class MockOrganizationRepository extends Mock
+    implements OrganizationRepository {}
+
+class MockFirestoreAttendanceRemote extends Mock
+    implements FirestoreAttendanceRemote {}
 
 void main() {
   late OnboardingController controller;
@@ -33,49 +38,132 @@ void main() {
     );
 
     registerFallbackValue(AppRole.student);
-    registerFallbackValue(const Organization(id: 'org1', name: 'Org 1', type: OrganizationType.college));
+    registerFallbackValue(const Organization(
+        id: 'org1', name: 'Org 1', type: OrganizationType.college));
     registerFallbackValue(AttendancePolicy(
-      id: 'p1', version: 1, effectiveFrom: DateTime.now(), state: PolicyState.official, 
-      evaluationPeriod: EvaluationPeriod.monthly, basis: CalculationBasis.hours, fullUnit: 8, halfUnit: 4
-    ));
-    registerFallbackValue(AttendanceCalendar(id: 'c1', version: 1, effectiveFrom: DateTime.now()));
-    registerFallbackValue(Membership(uid: 'u1', organizationId: 'org1', status: 'follower', joinedAt: DateTime.now()));
-    registerFallbackValue(Follow(id: 'f1', organizationId: 'org1', scopeId: 'global', status: 'active', followedAt: DateTime.now()));
-    registerFallbackValue(UserProfile(uid: 'u1', displayName: 'User', role: AppRole.student));
+        id: 'p1',
+        version: 1,
+        effectiveFrom: DateTime.now(),
+        state: PolicyState.official,
+        evaluationPeriod: EvaluationPeriod.monthly,
+        basis: CalculationBasis.hours,
+        fullUnit: 8,
+        halfUnit: 4));
+    registerFallbackValue(AttendanceCalendar(
+        id: 'c1', version: 1, effectiveFrom: DateTime.now()));
+    registerFallbackValue(Membership(
+        uid: 'u1',
+        organizationId: 'org1',
+        status: 'follower',
+        joinedAt: DateTime.now()));
+    registerFallbackValue(Follow(
+        id: 'f1',
+        organizationId: 'org1',
+        scopeId: 'global',
+        status: 'active',
+        followedAt: DateTime.now()));
+    registerFallbackValue(
+        UserProfile(uid: 'u1', displayName: 'User', role: AppRole.student));
 
     when(() => mockUserRepo.getProfile(any())).thenAnswer((_) async => null);
-    when(() => mockUserRepo.claimUsername(any(), any())).thenAnswer((_) async => Future.value());
-    when(() => mockUserRepo.createProfile(any())).thenAnswer((_) async => Future.value());
-    when(() => mockUserRepo.saveFollow(any(), any())).thenAnswer((_) async => Future.value());
-    when(() => mockOrgRepo.saveMembership(any())).thenAnswer((_) async => Future.value());
-    when(() => mockOrgRepo.saveOrganizationMetadata(any())).thenAnswer((_) async => Future.value());
-    when(() => mockOrgRepo.joinOrganizationAtomic(any())).thenAnswer((_) async => Future.value());
-    when(() => mockOrgRepo.getOrganization(any(), forceRemote: any(named: 'forceRemote'), reconcile: any(named: 'reconcile'))).thenAnswer((i) async => Organization(
-      id: i.positionalArguments[0] as String,
-      name: 'Test Org',
-      type: OrganizationType.college,
-    ));
+    when(() => mockUserRepo.claimUsername(any(), any()))
+        .thenAnswer((_) async => Future.value());
+    when(() => mockUserRepo.createProfile(any()))
+        .thenAnswer((_) async => Future.value());
+    when(() => mockUserRepo.saveFollow(any(), any()))
+        .thenAnswer((_) async => Future.value());
+    when(() => mockUserRepo.initializeCalendar(any(), any(), any(),
+            reviewedVersion: any(named: 'reviewedVersion')))
+        .thenAnswer((_) async {});
+    when(() => mockOrgRepo.sharedCalendarSnapshot(any()))
+        .thenAnswer((call) async => (
+              await mockOrgRepo.getOfficialCalendarForScope(
+                  call.positionalArguments[0] as String, 'global'),
+              0
+            ));
+    when(() => mockOrgRepo.saveMembership(any()))
+        .thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.saveOrganizationMetadata(any()))
+        .thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.joinOrganizationAtomic(any()))
+        .thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.getOrganization(any(),
+            forceRemote: any(named: 'forceRemote'),
+            reconcile: any(named: 'reconcile')))
+        .thenAnswer((i) async => Organization(
+              id: i.positionalArguments[0] as String,
+              name: 'Test Org',
+              type: OrganizationType.college,
+            ));
     when(() => mockOrgRepo.getResolvedPolicy(
-      uid: any(named: 'uid'), 
-      organizationId: any(named: 'organizationId'), 
-      scopeId: any(named: 'scopeId'),
-      followId: any(named: 'followId'),
-    )).thenAnswer((_) async => null);
-    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any(), activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => null);
-    when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any())).thenAnswer((_) async => AttendanceCalendar.unconfigured);
+          uid: any(named: 'uid'),
+          organizationId: any(named: 'organizationId'),
+          scopeId: any(named: 'scopeId'),
+          followId: any(named: 'followId'),
+        )).thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any(),
+            activePolicyId: any(named: 'activePolicyId')))
+        .thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any()))
+        .thenAnswer((_) async => AttendanceCalendar.unconfigured);
   });
 
-  test('Student following existing college should skip branch/semester and reach Dashboard', () async {
-    final org = const Organization(id: 'org1', name: 'Swarnaandhra', type: OrganizationType.college);
+  test(
+      'a new follower starts at the selected revision without reviewing older updates',
+      () async {
+    final calendar = AttendanceCalendar(
+        id: 'revision-0000000003',
+        version: 3,
+        effectiveFrom: DateTime(2000),
+        organizationId: 'org1',
+        scopeId: 'global',
+        holidays: [
+          Holiday(date: DateTime(2026, 12, 25), name: 'Current holiday')
+        ]);
+    when(() => mockAuth.uid).thenReturn('user_b');
+    when(() => mockOrgRepo.sharedCalendarSnapshot('org1'))
+        .thenAnswer((_) async => (calendar, 3));
+    controller.start(AppRole.student);
+    await controller.completeProfile('Student B', null,
+        registrationNumber: '0012');
+    await controller.selectOrganization(const Organization(
+        id: 'org1', name: 'College', type: OrganizationType.college));
+    await controller.useOfficialPolicy();
+    expect(controller.error, isNull);
+    final saved = verify(() => mockUserRepo.initializeCalendar(
+            'user_b', any(), captureAny(), reviewedVersion: 3)).captured.single
+        as AttendanceCalendar;
+    expect(saved.holidays.single.name, 'Current holiday');
+    expect(saved.organizationId, 'org1');
+  });
+
+  test(
+      'Student following existing college should skip branch/semester and reach Dashboard',
+      () async {
+    final org = const Organization(
+        id: 'org1', name: 'Swarnaandhra', type: OrganizationType.college);
     final policy = AttendancePolicy(
-      id: 'p1', version: 1, effectiveFrom: DateTime.now(), state: PolicyState.official, 
-      evaluationPeriod: EvaluationPeriod.monthly, basis: CalculationBasis.hours, fullUnit: 8, halfUnit: 4, minimumPercent: 85
-    );
-    final calendar = AttendanceCalendar(id: 'cal-global', version: 1, effectiveFrom: DateTime.now(), weeklyOffs: [7]);
+        id: 'p1',
+        version: 1,
+        effectiveFrom: DateTime.now(),
+        state: PolicyState.official,
+        evaluationPeriod: EvaluationPeriod.monthly,
+        basis: CalculationBasis.hours,
+        fullUnit: 8,
+        halfUnit: 4,
+        minimumPercent: 85);
+    final calendar = AttendanceCalendar(
+        id: 'cal-global',
+        version: 1,
+        effectiveFrom: DateTime.now(),
+        weeklyOffs: [7]);
 
     when(() => mockAuth.uid).thenReturn('user_b');
-    when(() => mockOrgRepo.getOfficialPolicyForScope('org1', 'global', activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => policy);
-    when(() => mockOrgRepo.getOfficialCalendarForScope('org1', 'global')).thenAnswer((_) async => calendar);
+    when(() => mockOrgRepo.getOfficialPolicyForScope('org1', 'global',
+            activePolicyId: any(named: 'activePolicyId')))
+        .thenAnswer((_) async => policy);
+    when(() => mockOrgRepo.getOfficialCalendarForScope('org1', 'global'))
+        .thenAnswer((_) async => calendar);
 
     // 0. Start and Profile
     controller.start(AppRole.student);
@@ -83,10 +171,12 @@ void main() {
 
     // 1. Select Organization
     await controller.selectOrganization(org);
-    
+
     // Should be at Policy Preview
     expect(controller.step, OnboardingStep.policyPreview);
     expect(controller.officialPolicy?.minimumPercent, 85);
+    verifyNever(() =>
+        mockOrgRepo.getOrganization(any(), forceRemote: true, reconcile: true));
 
     // 2. Follow
     await controller.useOfficialPolicy();
@@ -97,26 +187,33 @@ void main() {
 
     // Verify NO shared writes
     verifyNever(() => mockOrgRepo.setupOrganization(
-      org: any(named: 'org'),
-      policy: any(named: 'policy'),
-      calendar: any(named: 'calendar'),
-      membership: any(named: 'membership'),
-      follow: any(named: 'follow'),
-      uid: any(named: 'uid'),
-      scopes: any(named: 'scopes'),
-    ));
+          org: any(named: 'org'),
+          policy: any(named: 'policy'),
+          calendar: any(named: 'calendar'),
+          membership: any(named: 'membership'),
+          follow: any(named: 'follow'),
+          uid: any(named: 'uid'),
+          scopes: any(named: 'scopes'),
+        ));
 
     // Verify user-specific writes
     verify(() => mockUserRepo.saveFollow('user_b', any())).called(1);
-    verify(() => mockOrgRepo.joinOrganizationAtomic(any())).called(1);
+    // The follow sync transaction owns membership/count changes.
+    verifyNever(() => mockOrgRepo.joinOrganizationAtomic(any()));
   });
 
-  test('Existing org without official policy should show Preview and allow direct follow', () async {
-    final org = const Organization(id: 'org2', name: 'Legacy College', type: OrganizationType.college);
+  test(
+      'Existing org without official policy should show Preview and allow direct follow',
+      () async {
+    final org = const Organization(
+        id: 'org2', name: 'Legacy College', type: OrganizationType.college);
 
     when(() => mockAuth.uid).thenReturn('user_c');
-    when(() => mockOrgRepo.getOfficialPolicyForScope('org2', 'global', activePolicyId: any(named: 'activePolicyId'))).thenAnswer((_) async => null);
-    when(() => mockOrgRepo.getOfficialCalendarForScope('org2', 'global')).thenAnswer((_) async => AttendanceCalendar.unconfigured);
+    when(() => mockOrgRepo.getOfficialPolicyForScope('org2', 'global',
+            activePolicyId: any(named: 'activePolicyId')))
+        .thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialCalendarForScope('org2', 'global'))
+        .thenAnswer((_) async => AttendanceCalendar.unconfigured);
 
     // 0. Start and Profile
     controller.start(AppRole.student);
@@ -124,7 +221,7 @@ void main() {
 
     // 1. Select Organization
     await controller.selectOrganization(org);
-    
+
     // Should be at Policy Preview (Inheriting defaults)
     expect(controller.step, OnboardingStep.policyPreview);
 
@@ -139,7 +236,7 @@ void main() {
     // Complete personal setup
     controller.selectBasis(CalculationBasis.days);
     controller.selectPeriod(EvaluationPeriod.monthly);
-    controller.setTarget(75.0);
+    await controller.setTarget(75.0);
     await controller.completeSchedule();
     controller.selectDaysOff([7]);
     controller.selectSaturdayOption(true);
@@ -151,61 +248,78 @@ void main() {
 
     // Verify NO shared writes
     verifyNever(() => mockOrgRepo.setupOrganization(
-      org: any(named: 'org'),
-      policy: any(named: 'policy'),
-      calendar: any(named: 'calendar'),
-      membership: any(named: 'membership'),
-      follow: any(named: 'follow'),
-      uid: any(named: 'uid'),
-      scopes: any(named: 'scopes'),
-    ));
+          org: any(named: 'org'),
+          policy: any(named: 'policy'),
+          calendar: any(named: 'calendar'),
+          membership: any(named: 'membership'),
+          follow: any(named: 'follow'),
+          uid: any(named: 'uid'),
+          scopes: any(named: 'scopes'),
+        ));
   });
 
-  test('Personal calendar changes should be independent (Initialization Check)', () async {
-    const org = Organization(id: 'org1', name: 'College', type: OrganizationType.college);
-    final calendar = AttendanceCalendar(id: 'cal-global', version: 1, effectiveFrom: DateTime.now(), weeklyOffs: [7], offSaturdays: [2, 4]);
+  test('Personal calendar changes should be independent (Initialization Check)',
+      () async {
+    const org = Organization(
+        id: 'org1', name: 'College', type: OrganizationType.college);
+    final calendar = AttendanceCalendar(
+        id: 'cal-global',
+        version: 1,
+        effectiveFrom: DateTime.now(),
+        weeklyOffs: [7],
+        offSaturdays: [2, 4]);
 
     when(() => mockAuth.uid).thenReturn('user_d');
-    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any())).thenAnswer((_) async => null);
-    when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any())).thenAnswer((_) async => calendar);
+    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any()))
+        .thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any()))
+        .thenAnswer((_) async => calendar);
 
     controller.start(AppRole.student);
     await controller.completeProfile('Student D', null);
     await controller.selectOrganization(org);
-    
+
     // Complete personal setup...
     controller.selectBasis(CalculationBasis.hours);
     controller.selectPeriod(EvaluationPeriod.monthly);
-    controller.setTarget(75.0);
+    await controller.setTarget(75.0);
     await controller.completeSchedule();
-    
+
     await controller.followOrganization();
 
-    final capturedFollow = verify(() => mockUserRepo.saveFollow('user_d', captureAny())).captured.first as Follow;
-    expect(capturedFollow.personalWeeklyOffs, '[7]');
-    expect(capturedFollow.personalOffSaturdays, '[2,4]');
+    final capturedFollow =
+        verify(() => mockUserRepo.saveFollow('user_d', captureAny()))
+            .captured
+            .first as Follow;
+    expect(capturedFollow.personalWeeklyOffs, isNull);
+    expect(capturedFollow.personalOffSaturdays, isNull);
+    expect(capturedFollow.isPersonalCalendarConfigured, isFalse);
   });
 
-  test('New organization creator can still complete full setup with all writes', () async {
+  test('New organization creator can still complete full setup with all writes',
+      () async {
     when(() => mockAuth.uid).thenReturn('creator_1');
-    when(() => mockOrgRepo.saveOrganization(any(), any())).thenAnswer((_) async => Future.value());
-    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any())).thenAnswer((_) async => null);
-    when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any())).thenAnswer((_) async => AttendanceCalendar.unconfigured);
+    when(() => mockOrgRepo.saveOrganization(any(), any()))
+        .thenAnswer((_) async => Future.value());
+    when(() => mockOrgRepo.getOfficialPolicyForScope(any(), any()))
+        .thenAnswer((_) async => null);
+    when(() => mockOrgRepo.getOfficialCalendarForScope(any(), any()))
+        .thenAnswer((_) async => AttendanceCalendar.unconfigured);
     when(() => mockOrgRepo.setupOrganization(
-      org: any(named: 'org'),
-      policy: any(named: 'policy'),
-      calendar: any(named: 'calendar'),
-      membership: any(named: 'membership'),
-      follow: any(named: 'follow'),
-      uid: any(named: 'uid'),
-      scopes: any(named: 'scopes'),
-    )).thenAnswer((_) async => Future.value());
+          org: any(named: 'org'),
+          policy: any(named: 'policy'),
+          calendar: any(named: 'calendar'),
+          membership: any(named: 'membership'),
+          follow: any(named: 'follow'),
+          uid: any(named: 'uid'),
+          scopes: any(named: 'scopes'),
+        )).thenAnswer((_) async => Future.value());
 
     controller.start(AppRole.student);
     await controller.completeProfile('Creator', null);
     controller.goToCreateOrganization();
     controller.createOrganization('New College', 'Main', null);
-    
+
     // Skip branch/semester/ID for creator
     controller.selectBranch(null);
     controller.selectSemester(null);
@@ -218,20 +332,21 @@ void main() {
     await controller.completeSchedule();
     controller.selectDaysOff([7]);
     controller.selectSaturdayOption(true);
-    await Future.delayed(Duration.zero); // Await the un-awaited followOrganization call
+    await Future.delayed(
+        Duration.zero); // Await the un-awaited followOrganization call
 
     expect(controller.error, isNull);
     expect(controller.step, OnboardingStep.complete);
 
     // Verify setupOrganization WAS called
     verify(() => mockOrgRepo.setupOrganization(
-      org: any(named: 'org'),
-      policy: any(named: 'policy'),
-      calendar: any(named: 'calendar'),
-      membership: any(named: 'membership'),
-      follow: any(named: 'follow'),
-      uid: 'creator_1',
-      scopes: any(named: 'scopes'),
-    )).called(1);
+          org: any(named: 'org'),
+          policy: any(named: 'policy'),
+          calendar: any(named: 'calendar'),
+          membership: any(named: 'membership'),
+          follow: any(named: 'follow'),
+          uid: 'creator_1',
+          scopes: any(named: 'scopes'),
+        )).called(1);
   });
 }

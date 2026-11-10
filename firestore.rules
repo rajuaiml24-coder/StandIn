@@ -8,6 +8,99 @@ service cloud.firestore {
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isAdmin', false) == true;
     }
 
+    function ownsOrganization(orgId) {
+      return signedIn() && get(/databases/$(database)/documents/organizations/$(orgId)).data.get('createdBy', '') == request.auth.uid;
+    }
+
+    function validCalendarPublication(orgId) {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      let version = resource.data.get('latestCalendarRevision', 0);
+      let next = request.resource.data.get('latestCalendarRevision', 0);
+      let revision = /databases/$(database)/documents/organizations/$(orgId)/calendarRevisions/$(request.resource.data.get('activeCalendarId', 'none'));
+      return (!changed.hasAny(['activeCalendarId', 'latestCalendarRevision']) ||
+        (version == 0 && next == 0) ||
+        (next == version + 1 && existsAfter(revision) && getAfter(revision).data.version == next &&
+          getAfter(revision).data.author == request.auth.uid));
+    }
+
+    function validRulePublication(orgId) {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      let version = resource.data.get('latestRuleRevision', 0);
+      let next = request.resource.data.get('latestRuleRevision', 0);
+      let revisionId = request.resource.data.get('latestRuleId', 'none');
+      let revision = /databases/$(database)/documents/organizations/$(orgId)/ruleRevisions/$(revisionId);
+      return !changed.hasAny(['latestRuleRevision', 'latestRuleId', 'sharedRulesSchema']) ||
+        (next == version + 1 && existsAfter(revision) &&
+          getAfter(revision).data.version == next && getAfter(revision).data.author == request.auth.uid &&
+          request.resource.data.sharedRulesSchema in [1, 2] &&
+          request.resource.data.sharedRulesSchema == getAfter(revision).data.schema);
+    }
+
+    function validProtectedAttendance() {
+      let data = request.resource.data;
+      let snapshot = data.snapshot;
+      return data.revisionId is string && snapshot.schema in [1, 2] &&
+        snapshot.policy.get('oneVisitFullDay', false) is bool &&
+        (!snapshot.policy.get('oneVisitFullDay', false) ||
+          (snapshot.schema == 2 && snapshot.policy.basis == 'days' && snapshot.policy.fullUnit == 1)) &&
+        snapshot.policy.basis in ['days', 'hours', 'periods'] &&
+        snapshot.policy.fullUnit is number && snapshot.policy.fullUnit > 0 && snapshot.policy.fullUnit <= 1000000 &&
+        snapshot.dayType in ['working', 'weeklyOff', 'holiday'] &&
+        snapshot.physical is number && snapshot.physical >= 0 && snapshot.physical <= 1000000 &&
+        snapshot.leaveCredit is number && snapshot.leaveCredit >= 0 &&
+        snapshot.extraCredit is number && snapshot.extraCredit >= 0 &&
+        snapshot.requiredUnits is number && snapshot.requiredUnits >= 0 && snapshot.requiredUnits <= 1000000 &&
+        data.actualUnits is number && data.actualUnits >= 0 && data.actualUnits <= 1000000 &&
+        data.expectedUnits is number && data.expectedUnits >= 0 && data.expectedUnits <= 1000000 &&
+        data.leaveUnits is number && data.leaveUnits >= 0 &&
+        (snapshot.legacy == true || (data.actualUnits + data.leaveUnits <= snapshot.policy.fullUnit &&
+          snapshot.physical + snapshot.leaveCredit + snapshot.extraCredit <= snapshot.policy.fullUnit));
+    }
+
+    function validSharedRules(rules, orgId) {
+      let p = rules.policy;
+      let c = rules.calendar;
+      let bounded = p.evaluationPeriod in ['custom', 'semester', 'academicYear', 'halfYear'];
+      return p.organizationId == orgId && p.scopeId == 'global' &&
+        p.basis in ['days', 'hours', 'periods'] &&
+        p.evaluationPeriod in ['weekly', 'monthly', 'quarterly', 'custom', 'semester', 'academicYear', 'halfYear'] &&
+        p.minimumPercent is number && p.minimumPercent >= 0 && p.minimumPercent <= 100 &&
+        p.fullUnit is number && p.fullUnit > 0 && p.fullUnit <= 1000000 &&
+        p.halfUnit is number && p.halfUnit >= 0 && p.halfUnit <= p.fullUnit &&
+        p.leaveTreatment in ['noCredit', 'countsTowardTarget', 'excluded'] &&
+        p.weekOffCredit is bool && p.holidayCredit is bool &&
+        p.get('oneVisitFullDay', false) is bool &&
+        (!p.get('oneVisitFullDay', false) || (p.basis == 'days' && p.fullUnit == 1)) &&
+        (!bounded || (p.startDate is string && p.endDate is string && p.endDate >= p.startDate)) &&
+        c.organizationId == orgId && c.scopeId == 'global' &&
+        c.weeklyOffs is list && c.weeklyOffs.toSet().hasOnly([1, 2, 3, 4, 5, 6, 7]) &&
+        c.offSaturdays is list && c.offSaturdays.toSet().hasOnly([1, 2, 3, 4, 5]) &&
+        c.holidays is list && c.holidays.size() <= 1000 && c.isConfigured is bool;
+    }
+
+    function membershipCounterMatches(orgId, joining) {
+      let org = /databases/$(database)/documents/organizations/$(orgId);
+      let before = get(org).data.get('followerCount', 0);
+      let after = getAfter(org).data.get('followerCount', 0);
+      return after == (joining ? before + 1 : (before > 0 ? before - 1 : 0));
+    }
+
+    function ownsScopeRules(orgId, scopeId) {
+      let scope = /databases/$(database)/documents/organizations/$(orgId)/scopes/$(scopeId);
+      return signedIn() && scopeId != 'global' && existsAfter(scope) &&
+        getAfter(scope).data.get('createdBy', '') == request.auth.uid;
+    }
+
+    function isScopeCountChange(orgId, scopeId) {
+      let follower = /databases/$(database)/documents/organizations/$(orgId)/scopes/$(scopeId)/followers/$(request.auth.uid);
+      let before = resource.data.get('followerCount', 0);
+      let after = request.resource.data.followerCount;
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['followerCount', 'updatedAt']) &&
+        after is int && after >= 0 &&
+        ((!exists(follower) && existsAfter(follower) && after == before + 1) ||
+         (exists(follower) && !existsAfter(follower) && after == (before > 0 ? before - 1 : 0)));
+    }
+
     function isMembershipCountChange(orgId) {
       let member = /databases/$(database)/documents/organizations/$(orgId)/members/$(request.auth.uid);
       let before = resource.data.get('followerCount', 0);
@@ -38,6 +131,10 @@ service cloud.firestore {
                       request.resource.data.keys().size() == 1; // ONLY UID
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
+    match /configuration/sharedRules {
+      allow read: if signedIn();
+      allow write: if isAdmin();
+    }
 
     match /users/{uid} {
       allow read: if isOwner(uid);
@@ -48,53 +145,174 @@ service cloud.firestore {
       allow delete: if isOwner(uid);
 
       match /follows/{followId} {
-        allow read, write: if isOwner(uid);
+        function validContext() {
+          let orgId = request.resource.data.organizationId;
+          return orgId is string && request.resource.data.scopeId is string &&
+            request.resource.data.status in ['active', 'archived'] &&
+            (orgId.matches('personal:.*') ?
+              (orgId == 'personal:' + uid && request.resource.data.scopeId == 'global') :
+              existsAfter(/databases/$(database)/documents/organizations/$(orgId)));
+        }
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid) && validContext();
+        allow update: if isOwner(uid) && validContext() && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['organizationId', 'scopeId']);
+      }
+
+      match /plans/{planId} {
+        function validPlan() {
+          return request.resource.data.organizationId is string && request.resource.data.scopeId is string &&
+            request.resource.data.date is string && request.resource.data.isDeleted is bool &&
+            request.resource.data.status in ['full', 'half', 'partial', 'absent', 'leave'] &&
+            request.resource.data.units is number && request.resource.data.units >= 0;
+        }
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid) && validPlan();
+        allow update: if isOwner(uid) && validPlan() &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['organizationId', 'scopeId', 'date']);
+      }
+
+      match /calendarStates/{followId} {
+        function validCalendarState() {
+          let follow = getAfter(/databases/$(database)/documents/users/$(uid)/follows/$(followId));
+          return request.resource.data.organizationId == follow.data.organizationId &&
+            request.resource.data.scopeId == follow.data.scopeId && request.resource.data.state is string;
+        }
+        allow read, delete: if isOwner(uid);
+        allow create: if isOwner(uid) && validCalendarState();
+        allow update: if isOwner(uid) && validCalendarState() &&
+          request.resource.data.get('ruleSchema', 0) >= resource.data.get('ruleSchema', 0) &&
+          request.resource.data.get('ruleSchema', 0) in [0, 1, 2] &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['organizationId', 'scopeId']);
       }
 
       match /attendance/{attendanceId} {
         allow read: if isOwner(uid);
         allow create: if isOwner(uid) &&
-                        request.resource.data.keys().hasAll(['organizationId', 'scopeId', 'date', 'status', 'policyVersionId']);
-        allow update: if isOwner(uid) && !isModifyingProtectedAttendanceFields();
+                        request.resource.data.keys().hasAll(['organizationId', 'scopeId', 'date', 'status', 'policyVersionId']) &&
+                        (!request.resource.data.keys().hasAny(['snapshot']) || validProtectedAttendance());
+        allow update: if isOwner(uid) && !isModifyingProtectedAttendanceFields() &&
+          (resource.data.keys().hasAny(['snapshot']) ?
+            (validProtectedAttendance() && request.resource.data.baseRevision == resource.data.revisionId &&
+             request.resource.data.snapshot.schema == resource.data.snapshot.schema &&
+             request.resource.data.snapshot.policy.get('oneVisitFullDay', false) == resource.data.snapshot.policy.get('oneVisitFullDay', false) &&
+             request.resource.data.revisionId != resource.data.revisionId &&
+             request.resource.data.snapshot.policy == resource.data.snapshot.policy &&
+             request.resource.data.snapshot.dayType == resource.data.snapshot.dayType &&
+             request.resource.data.snapshot.periodStart == resource.data.snapshot.periodStart &&
+             request.resource.data.snapshot.periodEnd == resource.data.snapshot.periodEnd &&
+             request.resource.data.history is list && request.resource.data.history.size() > resource.data.get('history', []).size() &&
+             request.resource.data.history.hasAll(resource.data.get('history', [])) &&
+             request.resource.data.history[request.resource.data.history.size() - 1].revisionId == resource.data.revisionId &&
+             request.resource.data.history[request.resource.data.history.size() - 1].status == resource.data.status &&
+             request.resource.data.history[request.resource.data.history.size() - 1].actualUnits == resource.data.actualUnits &&
+             request.resource.data.history[request.resource.data.history.size() - 1].snapshot == resource.data.snapshot) :
+            (!request.resource.data.keys().hasAny(['snapshot']) || (validProtectedAttendance() &&
+              request.resource.data.snapshot.legacy == true &&
+              !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status', 'actualUnits', 'expectedUnits']))));
         allow delete: if isOwner(uid);
       }
     }
 
     match /organizations/{orgId} {
       allow read: if true;
-      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      allow create: if signedIn() && !orgId.matches('personal:.*') && request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.get('followerCount', 0) == 0 && request.resource.data.get('isVerified', false) == false;
 
       // Allow update if admin or creator.
       // For legacy orgs without createdBy, only isAdmin() can update.
       allow update: if isAdmin() || (signedIn() &&
-        (resource.data.get('createdBy', '') == request.auth.uid || isMembershipCountChange(orgId)));
+        ((resource.data.get('createdBy', '') == request.auth.uid &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['followerCount', 'createdBy', 'isVerified']) && validCalendarPublication(orgId) && validRulePublication(orgId)) || isMembershipCountChange(orgId)));
       allow delete: if isAdmin();
 
       match /scopes/{scopeId} {
         allow read: if signedIn();
-        allow create, update: if isAdmin() || (signedIn() && get(/databases/$(database)/documents/organizations/$(orgId)).data.createdBy == request.auth.uid);
+        allow create: if isAdmin() || (signedIn() && request.resource.data.createdBy == request.auth.uid &&
+          request.resource.data.organizationId == orgId && request.resource.data.get('followerCount', 0) == 0 &&
+          exists(/databases/$(database)/documents/organizations/$(orgId)) &&
+          (request.resource.data.parentId == null || exists(/databases/$(database)/documents/organizations/$(orgId)/scopes/$(request.resource.data.parentId))));
+        allow update: if isAdmin() || (signedIn() &&
+          (((resource.data.get('createdBy', '') == request.auth.uid || ownsOrganization(orgId)) &&
+            !request.resource.data.diff(resource.data).affectedKeys().hasAny(['followerCount', 'createdBy', 'organizationId', 'parentId', 'type'])) ||
+            isScopeCountChange(orgId, scopeId)));
         allow delete: if isAdmin();
+
+        match /followers/{uid} {
+          function validCounterTransition(joining) {
+            let scope = /databases/$(database)/documents/organizations/$(orgId)/scopes/$(scopeId);
+            let before = get(scope).data.get('followerCount', 0);
+            let after = getAfter(scope).data.get('followerCount', 0);
+            return after == (joining ? before + 1 : (before > 0 ? before - 1 : 0));
+          }
+          allow read: if isOwner(uid) || isAdmin();
+          allow create: if isOwner(uid) && request.resource.data.keys().hasOnly(['followId']) &&
+            getAfter(/databases/$(database)/documents/users/$(uid)/follows/$(request.resource.data.followId)).data.organizationId == orgId &&
+            getAfter(/databases/$(database)/documents/users/$(uid)/follows/$(request.resource.data.followId)).data.scopeId == scopeId &&
+            getAfter(/databases/$(database)/documents/users/$(uid)/follows/$(request.resource.data.followId)).data.status == 'active' &&
+            get(/databases/$(database)/documents/organizations/$(orgId)/scopes/$(scopeId)).data.get('isArchived', false) == false &&
+            validCounterTransition(true);
+          allow delete: if isAdmin() || (isOwner(uid) && validCounterTransition(false) &&
+            (!existsAfter(/databases/$(database)/documents/users/$(uid)/follows/$(resource.data.followId)) ||
+             getAfter(/databases/$(database)/documents/users/$(uid)/follows/$(resource.data.followId)).data.status != 'active'));
+        }
       }
 
       match /policies/{policyId} {
         allow read: if signedIn();
-        allow create, update: if isAdmin() || (signedIn() && get(/databases/$(database)/documents/organizations/$(orgId)).data.createdBy == request.auth.uid);
+        allow create: if isAdmin() || ownsOrganization(orgId) || ownsScopeRules(orgId, request.resource.data.get('scopeId', 'global'));
+        allow update: if isAdmin() || ownsOrganization(orgId) ||
+          (ownsScopeRules(orgId, resource.data.get('scopeId', 'global')) && request.resource.data.scopeId == resource.data.scopeId);
         allow delete: if isAdmin();
       }
 
       match /calendars/{calendarId} {
         allow read: if signedIn();
-        allow create, update: if isAdmin() || (signedIn() && get(/databases/$(database)/documents/organizations/$(orgId)).data.createdBy == request.auth.uid);
-        allow delete: if isAdmin();
+        allow create: if isAdmin() || ownsOrganization(orgId) || ownsScopeRules(orgId, request.resource.data.get('scopeId', 'global'));
+        allow update: if resource.data.get('immutableRevision', false) == false &&
+          (isAdmin() || ownsOrganization(orgId) ||
+          (ownsScopeRules(orgId, resource.data.get('scopeId', 'global')) && request.resource.data.scopeId == resource.data.scopeId));
+        allow delete: if isAdmin() && resource.data.get('immutableRevision', false) == false;
+      }
+
+      match /calendarRevisions/{revisionId} {
+        allow read: if signedIn();
+        allow create: if ownsOrganization(orgId) &&
+          request.resource.data.author == request.auth.uid &&
+          request.resource.data.version is int && request.resource.data.changes is map &&
+          request.resource.data.calendar is map &&
+          request.resource.data.version == get(/databases/$(database)/documents/organizations/$(orgId)).data.get('latestCalendarRevision', 0) + 1 &&
+          request.resource.data.baseCalendarId == (get(/databases/$(database)/documents/organizations/$(orgId)).data.get('activeCalendarId', null) == null ? 'unconfigured' : get(/databases/$(database)/documents/organizations/$(orgId)).data.activeCalendarId) &&
+          getAfter(/databases/$(database)/documents/organizations/$(orgId)).data.latestCalendarRevision == request.resource.data.version &&
+          getAfter(/databases/$(database)/documents/organizations/$(orgId)).data.activeCalendarId == revisionId &&
+          getAfter(/databases/$(database)/documents/organizations/$(orgId)/calendars/$(revisionId)).data.immutableRevision == true;
+        allow update, delete: if false;
+      }
+
+      match /ruleRevisions/{revisionId} {
+        allow read: if signedIn();
+        allow create: if ownsOrganization(orgId) &&
+          get(/databases/$(database)/documents/configuration/sharedRules).data.enabled == true &&
+          request.resource.data.schema in [1, 2] && request.resource.data.author == request.auth.uid &&
+          (!request.resource.data.rules.policy.get('oneVisitFullDay', false) || request.resource.data.schema == 2) &&
+          request.resource.data.version is int && request.resource.data.changes is map &&
+          request.resource.data.changes.size() > 0 && request.resource.data.rules is map &&
+          validSharedRules(request.resource.data.rules, orgId) &&
+          request.resource.data.before is map && request.resource.data.effectiveAt is timestamp &&
+          request.resource.data.effectiveAt > request.time &&
+          request.resource.data.baseVersion == get(/databases/$(database)/documents/organizations/$(orgId)).data.get('latestRuleRevision', 0) &&
+          request.resource.data.version == request.resource.data.baseVersion + 1 &&
+          getAfter(/databases/$(database)/documents/organizations/$(orgId)).data.latestRuleRevision == request.resource.data.version &&
+          getAfter(/databases/$(database)/documents/organizations/$(orgId)).data.latestRuleId == revisionId;
+        allow update, delete: if false;
       }
 
       match /members/{uid} {
         allow read: if isOwner(uid) || isAdmin();
         allow create: if signedIn() &&
                         request.auth.uid == uid &&
-                        request.resource.data.status in ['follower', 'applicant'];
+                        request.resource.data.status in ['follower', 'applicant'] && membershipCounterMatches(orgId, true);
         allow update: if isAdmin(); // Only admins can verify or change status
-        allow delete: if isOwner(uid) || isAdmin();
+        allow delete: if (isOwner(uid) && membershipCounterMatches(orgId, false)) || isAdmin();
       }
 
       match /proposals/{proposalId} {

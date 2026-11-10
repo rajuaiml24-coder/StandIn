@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:standin/src/domain/attendance.dart';
 import 'package:standin/src/data/local/standin_database.dart';
@@ -20,13 +19,22 @@ import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 class MockFirebaseAuth extends Mock implements auth.FirebaseAuth {}
+
 class MockUser extends Mock implements auth.User {}
+
 class MockUserCredential extends Mock implements auth.UserCredential {}
+
 class MockSecureStorage extends Mock implements FlutterSecureStorage {}
+
 class MockConnectivity extends Mock implements Connectivity {}
+
 class MockGoogleSignIn extends Mock implements GoogleSignIn {}
+
 class MockGoogleSignInAccount extends Mock implements GoogleSignInAccount {}
-class MockGoogleSignInAuthentication extends Mock implements GoogleSignInAuthentication {}
+
+class MockGoogleSignInAuthentication extends Mock
+    implements GoogleSignInAuthentication {}
+
 class MockAttendanceRemote extends Mock implements FirestoreAttendanceRemote {}
 
 void main() {
@@ -54,23 +62,28 @@ void main() {
     mockGoogleSignIn = MockGoogleSignIn();
     mockGoogleAccount = MockGoogleSignInAccount();
     mockGoogleAuth = MockGoogleSignInAuthentication();
-    
+
     when(() => mockAuth.currentUser).thenReturn(mockUser);
     when(() => mockUser.uid).thenReturn('test_uid_123');
     when(() => mockUser.displayName).thenReturn('Test User');
     when(() => mockUserCredential.user).thenReturn(mockUser);
-    when(() => mockConnectivity.checkConnectivity()).thenAnswer((_) async => [ConnectivityResult.wifi]);
-    
-    when(() => mockGoogleSignIn.signIn()).thenAnswer((_) async => mockGoogleAccount);
-    when(() => mockGoogleAccount.authentication).thenAnswer((_) async => mockGoogleAuth);
+    when(() => mockConnectivity.checkConnectivity())
+        .thenAnswer((_) async => [ConnectivityResult.wifi]);
+
+    when(() => mockGoogleSignIn.signIn())
+        .thenAnswer((_) async => mockGoogleAccount);
+    when(() => mockGoogleAccount.authentication)
+        .thenAnswer((_) async => mockGoogleAuth);
     when(() => mockGoogleAuth.accessToken).thenReturn('fake_access_token');
     when(() => mockGoogleAuth.idToken).thenReturn('fake_id_token');
-    when(() => mockAuth.signInWithCredential(any())).thenAnswer((_) async => mockUserCredential);
+    when(() => mockAuth.signInWithCredential(any()))
+        .thenAnswer((_) async => mockUserCredential);
 
-    authService = AuthService(mockAuth, MockSecureStorage(), googleSignIn: mockGoogleSignIn);
+    authService = AuthService(mockAuth, MockSecureStorage(),
+        googleSignIn: mockGoogleSignIn);
     userRepo = UserRepository(database, FirestoreUserRemote(firestore));
     orgRepo = OrganizationRepository(database, FirestoreOrgRemote(firestore));
-    
+
     onboarding = OnboardingController(
       authService: authService,
       userRepository: userRepo,
@@ -80,18 +93,20 @@ void main() {
   });
 
   setUpAll(() {
-    registerFallbackValue(auth.GoogleAuthProvider.credential(accessToken: 'a', idToken: 'b'));
+    registerFallbackValue(
+        auth.GoogleAuthProvider.credential(accessToken: 'a', idToken: 'b'));
   });
 
   tearDown(() async {
     await database.close();
   });
 
-  test('E2E Logical Flow: Google Login -> Signup -> Org -> Setup -> Home', () async {
+  test('E2E Logical Flow: Google Login -> Signup -> Org -> Setup -> Home',
+      () async {
     // STEP 0: Google Sign-In
     expect(onboarding.step, OnboardingStep.welcome);
     await onboarding.signInWithGoogle();
-    
+
     // In production, StandInApp would now replace the controller with a session-aware one.
     // We simulate this by creating a new controller for the authenticated state.
     final authOnboarding = OnboardingController(
@@ -102,7 +117,8 @@ void main() {
       initialStep: OnboardingStep.roleSelection,
     );
     expect(authOnboarding.step, OnboardingStep.roleSelection);
-    expect(authOnboarding.displayName, ''); // New user starts with empty display name in controller
+    expect(authOnboarding.displayName,
+        ''); // New user starts with empty display name in controller
 
     // STEP 1: Profile Setup
     authOnboarding.start(AppRole.student);
@@ -112,7 +128,8 @@ void main() {
 
     // STEP 2: Username Uniqueness (Logical)
     expect(authOnboarding.username, isNotNull);
-    final isAvailable = await authOnboarding.checkUsernameAvailability(authOnboarding.username!);
+    final isAvailable = await authOnboarding
+        .checkUsernameAvailability(authOnboarding.username!);
     expect(isAvailable, true);
     authOnboarding.confirmUsername();
 
@@ -129,37 +146,51 @@ void main() {
     // STEP 5: Progressive Policy Setup
     authOnboarding.selectBasis(CalculationBasis.hours);
     expect(authOnboarding.step, OnboardingStep.setupPeriod);
-    
+
     authOnboarding.selectPeriod(EvaluationPeriod.monthly);
     expect(authOnboarding.step, OnboardingStep.setupTarget);
-    
+
     authOnboarding.setTarget(75.0);
     expect(authOnboarding.step, OnboardingStep.setupSchedule);
-    
+
     await authOnboarding.completeSchedule(fullUnit: 8.0);
     expect(authOnboarding.step, OnboardingStep.setupDaysOff);
 
     authOnboarding.selectDaysOff([7]); // Sunday off
     expect(authOnboarding.step, OnboardingStep.setupSaturday);
 
-    authOnboarding.selectSaturdayOption(false, specificSaturdays: [2, 4]); // 2nd & 4th Sat off
+    authOnboarding.selectSaturdayOption(false,
+        specificSaturdays: [2, 4]); // 2nd & 4th Sat off
     expect(authOnboarding.step, OnboardingStep.complete);
-    
+
     // Wait for async followOrganization to complete
     while (authOnboarding.isLoading) {
       await Future.delayed(Duration.zero);
     }
-    
+
     // STEP 6: Verify Local Drift state
     final localProfile = await userRepo.getProfile('test_uid_123');
     expect(localProfile?.activeFollowId, isNotNull);
-    
+
     final followId = localProfile!.activeFollowId!;
     final localFollow = await database.getFollow(followId);
     expect(localFollow, isNotNull);
-    expect(localFollow!.personalBasis, CalculationBasis.hours.name);
-    expect(localFollow.personalTargetPercent, 75.0);
-    expect(localFollow.personalOffSaturdays, jsonEncode([2, 4]));
+    expect(localFollow!.personalBasis, isNull);
+    expect(localFollow.personalTargetPercent, isNull);
+    expect(localFollow.isPersonalCalendarConfigured, isFalse);
+    final policy = await orgRepo.getResolvedPolicy(
+        uid: 'test_uid_123',
+        organizationId: localFollow.organizationId,
+        scopeId: localFollow.scopeId,
+        followId: followId);
+    final calendar = await orgRepo.getResolvedCalendar(
+        uid: 'test_uid_123',
+        organizationId: localFollow.organizationId,
+        scopeId: localFollow.scopeId,
+        followId: followId);
+    expect(policy!.basis, CalculationBasis.hours);
+    expect(policy.minimumPercent, 75);
+    expect(calendar.offSaturdays, [2, 4]);
 
     // SUCCESS: E2E Logical Flow complete
   });

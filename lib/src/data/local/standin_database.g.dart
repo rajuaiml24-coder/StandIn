@@ -83,6 +83,12 @@ class $AttendanceTableTable extends AttendanceTable
   late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
       'updated_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _protectedDataMeta =
+      const VerificationMeta('protectedData');
+  @override
+  late final GeneratedColumn<String> protectedData = GeneratedColumn<String>(
+      'protected_data', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -96,7 +102,8 @@ class $AttendanceTableTable extends AttendanceTable
         calendarVersionId,
         pendingSync,
         syncError,
-        updatedAt
+        updatedAt,
+        protectedData
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -186,6 +193,12 @@ class $AttendanceTableTable extends AttendanceTable
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('protected_data')) {
+      context.handle(
+          _protectedDataMeta,
+          protectedData.isAcceptableOrUnknown(
+              data['protected_data']!, _protectedDataMeta));
+    }
     return context;
   }
 
@@ -219,6 +232,8 @@ class $AttendanceTableTable extends AttendanceTable
           .read(DriftSqlType.string, data['${effectivePrefix}sync_error']),
       updatedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      protectedData: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}protected_data']),
     );
   }
 
@@ -242,6 +257,7 @@ class AttendanceTableData extends DataClass
   final bool pendingSync;
   final String? syncError;
   final DateTime updatedAt;
+  final String? protectedData;
   const AttendanceTableData(
       {required this.id,
       required this.organizationId,
@@ -254,7 +270,8 @@ class AttendanceTableData extends DataClass
       this.calendarVersionId,
       required this.pendingSync,
       this.syncError,
-      required this.updatedAt});
+      required this.updatedAt,
+      this.protectedData});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -276,6 +293,9 @@ class AttendanceTableData extends DataClass
       map['sync_error'] = Variable<String>(syncError);
     }
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || protectedData != null) {
+      map['protected_data'] = Variable<String>(protectedData);
+    }
     return map;
   }
 
@@ -299,6 +319,9 @@ class AttendanceTableData extends DataClass
           ? const Value.absent()
           : Value(syncError),
       updatedAt: Value(updatedAt),
+      protectedData: protectedData == null && nullToAbsent
+          ? const Value.absent()
+          : Value(protectedData),
     );
   }
 
@@ -319,6 +342,7 @@ class AttendanceTableData extends DataClass
       pendingSync: serializer.fromJson<bool>(json['pendingSync']),
       syncError: serializer.fromJson<String?>(json['syncError']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      protectedData: serializer.fromJson<String?>(json['protectedData']),
     );
   }
   @override
@@ -337,6 +361,7 @@ class AttendanceTableData extends DataClass
       'pendingSync': serializer.toJson<bool>(pendingSync),
       'syncError': serializer.toJson<String?>(syncError),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'protectedData': serializer.toJson<String?>(protectedData),
     };
   }
 
@@ -352,7 +377,8 @@ class AttendanceTableData extends DataClass
           Value<String?> calendarVersionId = const Value.absent(),
           bool? pendingSync,
           Value<String?> syncError = const Value.absent(),
-          DateTime? updatedAt}) =>
+          DateTime? updatedAt,
+          Value<String?> protectedData = const Value.absent()}) =>
       AttendanceTableData(
         id: id ?? this.id,
         organizationId: organizationId ?? this.organizationId,
@@ -370,6 +396,8 @@ class AttendanceTableData extends DataClass
         pendingSync: pendingSync ?? this.pendingSync,
         syncError: syncError.present ? syncError.value : this.syncError,
         updatedAt: updatedAt ?? this.updatedAt,
+        protectedData:
+            protectedData.present ? protectedData.value : this.protectedData,
       );
   AttendanceTableData copyWithCompanion(AttendanceTableCompanion data) {
     return AttendanceTableData(
@@ -397,6 +425,9 @@ class AttendanceTableData extends DataClass
           data.pendingSync.present ? data.pendingSync.value : this.pendingSync,
       syncError: data.syncError.present ? data.syncError.value : this.syncError,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      protectedData: data.protectedData.present
+          ? data.protectedData.value
+          : this.protectedData,
     );
   }
 
@@ -414,7 +445,8 @@ class AttendanceTableData extends DataClass
           ..write('calendarVersionId: $calendarVersionId, ')
           ..write('pendingSync: $pendingSync, ')
           ..write('syncError: $syncError, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('protectedData: $protectedData')
           ..write(')'))
         .toString();
   }
@@ -432,7 +464,8 @@ class AttendanceTableData extends DataClass
       calendarVersionId,
       pendingSync,
       syncError,
-      updatedAt);
+      updatedAt,
+      protectedData);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -448,7 +481,8 @@ class AttendanceTableData extends DataClass
           other.calendarVersionId == this.calendarVersionId &&
           other.pendingSync == this.pendingSync &&
           other.syncError == this.syncError &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.protectedData == this.protectedData);
 }
 
 class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
@@ -464,6 +498,7 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
   final Value<bool> pendingSync;
   final Value<String?> syncError;
   final Value<DateTime> updatedAt;
+  final Value<String?> protectedData;
   final Value<int> rowid;
   const AttendanceTableCompanion({
     this.id = const Value.absent(),
@@ -478,6 +513,7 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
     this.pendingSync = const Value.absent(),
     this.syncError = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.protectedData = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   AttendanceTableCompanion.insert({
@@ -493,6 +529,7 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
     this.pendingSync = const Value.absent(),
     this.syncError = const Value.absent(),
     required DateTime updatedAt,
+    this.protectedData = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         organizationId = Value(organizationId),
@@ -515,6 +552,7 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
     Expression<bool>? pendingSync,
     Expression<String>? syncError,
     Expression<DateTime>? updatedAt,
+    Expression<String>? protectedData,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -530,6 +568,7 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
       if (pendingSync != null) 'pending_sync': pendingSync,
       if (syncError != null) 'sync_error': syncError,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (protectedData != null) 'protected_data': protectedData,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -547,6 +586,7 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
       Value<bool>? pendingSync,
       Value<String?>? syncError,
       Value<DateTime>? updatedAt,
+      Value<String?>? protectedData,
       Value<int>? rowid}) {
     return AttendanceTableCompanion(
       id: id ?? this.id,
@@ -561,6 +601,7 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
       pendingSync: pendingSync ?? this.pendingSync,
       syncError: syncError ?? this.syncError,
       updatedAt: updatedAt ?? this.updatedAt,
+      protectedData: protectedData ?? this.protectedData,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -604,6 +645,9 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (protectedData.present) {
+      map['protected_data'] = Variable<String>(protectedData.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -625,6 +669,7 @@ class AttendanceTableCompanion extends UpdateCompanion<AttendanceTableData> {
           ..write('pendingSync: $pendingSync, ')
           ..write('syncError: $syncError, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('protectedData: $protectedData, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1263,6 +1308,30 @@ class $ScopeRowsTable extends ScopeRows
   late final GeneratedColumn<String> activeCalendarId = GeneratedColumn<String>(
       'active_calendar_id', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _followerCountMeta =
+      const VerificationMeta('followerCount');
+  @override
+  late final GeneratedColumn<int> followerCount = GeneratedColumn<int>(
+      'follower_count', aliasedName, false,
+      type: DriftSqlType.int,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _createdByMeta =
+      const VerificationMeta('createdBy');
+  @override
+  late final GeneratedColumn<String> createdBy = GeneratedColumn<String>(
+      'created_by', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _isArchivedMeta =
+      const VerificationMeta('isArchived');
+  @override
+  late final GeneratedColumn<bool> isArchived = GeneratedColumn<bool>(
+      'is_archived', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_archived" IN (0, 1))'),
+      defaultValue: const Constant(false));
   @override
   List<GeneratedColumn> get $columns => [
         id,
@@ -1271,7 +1340,10 @@ class $ScopeRowsTable extends ScopeRows
         type,
         name,
         activePolicyId,
-        activeCalendarId
+        activeCalendarId,
+        followerCount,
+        createdBy,
+        isArchived
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1324,6 +1396,22 @@ class $ScopeRowsTable extends ScopeRows
           activeCalendarId.isAcceptableOrUnknown(
               data['active_calendar_id']!, _activeCalendarIdMeta));
     }
+    if (data.containsKey('follower_count')) {
+      context.handle(
+          _followerCountMeta,
+          followerCount.isAcceptableOrUnknown(
+              data['follower_count']!, _followerCountMeta));
+    }
+    if (data.containsKey('created_by')) {
+      context.handle(_createdByMeta,
+          createdBy.isAcceptableOrUnknown(data['created_by']!, _createdByMeta));
+    }
+    if (data.containsKey('is_archived')) {
+      context.handle(
+          _isArchivedMeta,
+          isArchived.isAcceptableOrUnknown(
+              data['is_archived']!, _isArchivedMeta));
+    }
     return context;
   }
 
@@ -1347,6 +1435,12 @@ class $ScopeRowsTable extends ScopeRows
           DriftSqlType.string, data['${effectivePrefix}active_policy_id']),
       activeCalendarId: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}active_calendar_id']),
+      followerCount: attachedDatabase.typeMapping
+          .read(DriftSqlType.int, data['${effectivePrefix}follower_count'])!,
+      createdBy: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}created_by']),
+      isArchived: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_archived'])!,
     );
   }
 
@@ -1364,6 +1458,9 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
   final String name;
   final String? activePolicyId;
   final String? activeCalendarId;
+  final int followerCount;
+  final String? createdBy;
+  final bool isArchived;
   const ScopeRow(
       {required this.id,
       required this.organizationId,
@@ -1371,7 +1468,10 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
       required this.type,
       required this.name,
       this.activePolicyId,
-      this.activeCalendarId});
+      this.activeCalendarId,
+      required this.followerCount,
+      this.createdBy,
+      required this.isArchived});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -1388,6 +1488,11 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
     if (!nullToAbsent || activeCalendarId != null) {
       map['active_calendar_id'] = Variable<String>(activeCalendarId);
     }
+    map['follower_count'] = Variable<int>(followerCount);
+    if (!nullToAbsent || createdBy != null) {
+      map['created_by'] = Variable<String>(createdBy);
+    }
+    map['is_archived'] = Variable<bool>(isArchived);
     return map;
   }
 
@@ -1406,6 +1511,11 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
       activeCalendarId: activeCalendarId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeCalendarId),
+      followerCount: Value(followerCount),
+      createdBy: createdBy == null && nullToAbsent
+          ? const Value.absent()
+          : Value(createdBy),
+      isArchived: Value(isArchived),
     );
   }
 
@@ -1420,6 +1530,9 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
       name: serializer.fromJson<String>(json['name']),
       activePolicyId: serializer.fromJson<String?>(json['activePolicyId']),
       activeCalendarId: serializer.fromJson<String?>(json['activeCalendarId']),
+      followerCount: serializer.fromJson<int>(json['followerCount']),
+      createdBy: serializer.fromJson<String?>(json['createdBy']),
+      isArchived: serializer.fromJson<bool>(json['isArchived']),
     );
   }
   @override
@@ -1433,6 +1546,9 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
       'name': serializer.toJson<String>(name),
       'activePolicyId': serializer.toJson<String?>(activePolicyId),
       'activeCalendarId': serializer.toJson<String?>(activeCalendarId),
+      'followerCount': serializer.toJson<int>(followerCount),
+      'createdBy': serializer.toJson<String?>(createdBy),
+      'isArchived': serializer.toJson<bool>(isArchived),
     };
   }
 
@@ -1443,7 +1559,10 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
           String? type,
           String? name,
           Value<String?> activePolicyId = const Value.absent(),
-          Value<String?> activeCalendarId = const Value.absent()}) =>
+          Value<String?> activeCalendarId = const Value.absent(),
+          int? followerCount,
+          Value<String?> createdBy = const Value.absent(),
+          bool? isArchived}) =>
       ScopeRow(
         id: id ?? this.id,
         organizationId: organizationId ?? this.organizationId,
@@ -1455,6 +1574,9 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
         activeCalendarId: activeCalendarId.present
             ? activeCalendarId.value
             : this.activeCalendarId,
+        followerCount: followerCount ?? this.followerCount,
+        createdBy: createdBy.present ? createdBy.value : this.createdBy,
+        isArchived: isArchived ?? this.isArchived,
       );
   ScopeRow copyWithCompanion(ScopeRowsCompanion data) {
     return ScopeRow(
@@ -1471,6 +1593,12 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
       activeCalendarId: data.activeCalendarId.present
           ? data.activeCalendarId.value
           : this.activeCalendarId,
+      followerCount: data.followerCount.present
+          ? data.followerCount.value
+          : this.followerCount,
+      createdBy: data.createdBy.present ? data.createdBy.value : this.createdBy,
+      isArchived:
+          data.isArchived.present ? data.isArchived.value : this.isArchived,
     );
   }
 
@@ -1483,14 +1611,17 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
           ..write('type: $type, ')
           ..write('name: $name, ')
           ..write('activePolicyId: $activePolicyId, ')
-          ..write('activeCalendarId: $activeCalendarId')
+          ..write('activeCalendarId: $activeCalendarId, ')
+          ..write('followerCount: $followerCount, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('isArchived: $isArchived')
           ..write(')'))
         .toString();
   }
 
   @override
   int get hashCode => Object.hash(id, organizationId, parentId, type, name,
-      activePolicyId, activeCalendarId);
+      activePolicyId, activeCalendarId, followerCount, createdBy, isArchived);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -1501,7 +1632,10 @@ class ScopeRow extends DataClass implements Insertable<ScopeRow> {
           other.type == this.type &&
           other.name == this.name &&
           other.activePolicyId == this.activePolicyId &&
-          other.activeCalendarId == this.activeCalendarId);
+          other.activeCalendarId == this.activeCalendarId &&
+          other.followerCount == this.followerCount &&
+          other.createdBy == this.createdBy &&
+          other.isArchived == this.isArchived);
 }
 
 class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
@@ -1512,6 +1646,9 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
   final Value<String> name;
   final Value<String?> activePolicyId;
   final Value<String?> activeCalendarId;
+  final Value<int> followerCount;
+  final Value<String?> createdBy;
+  final Value<bool> isArchived;
   final Value<int> rowid;
   const ScopeRowsCompanion({
     this.id = const Value.absent(),
@@ -1521,6 +1658,9 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
     this.name = const Value.absent(),
     this.activePolicyId = const Value.absent(),
     this.activeCalendarId = const Value.absent(),
+    this.followerCount = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.isArchived = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ScopeRowsCompanion.insert({
@@ -1531,6 +1671,9 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
     required String name,
     this.activePolicyId = const Value.absent(),
     this.activeCalendarId = const Value.absent(),
+    this.followerCount = const Value.absent(),
+    this.createdBy = const Value.absent(),
+    this.isArchived = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : id = Value(id),
         organizationId = Value(organizationId),
@@ -1544,6 +1687,9 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
     Expression<String>? name,
     Expression<String>? activePolicyId,
     Expression<String>? activeCalendarId,
+    Expression<int>? followerCount,
+    Expression<String>? createdBy,
+    Expression<bool>? isArchived,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -1554,6 +1700,9 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
       if (name != null) 'name': name,
       if (activePolicyId != null) 'active_policy_id': activePolicyId,
       if (activeCalendarId != null) 'active_calendar_id': activeCalendarId,
+      if (followerCount != null) 'follower_count': followerCount,
+      if (createdBy != null) 'created_by': createdBy,
+      if (isArchived != null) 'is_archived': isArchived,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -1566,6 +1715,9 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
       Value<String>? name,
       Value<String?>? activePolicyId,
       Value<String?>? activeCalendarId,
+      Value<int>? followerCount,
+      Value<String?>? createdBy,
+      Value<bool>? isArchived,
       Value<int>? rowid}) {
     return ScopeRowsCompanion(
       id: id ?? this.id,
@@ -1575,6 +1727,9 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
       name: name ?? this.name,
       activePolicyId: activePolicyId ?? this.activePolicyId,
       activeCalendarId: activeCalendarId ?? this.activeCalendarId,
+      followerCount: followerCount ?? this.followerCount,
+      createdBy: createdBy ?? this.createdBy,
+      isArchived: isArchived ?? this.isArchived,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -1603,6 +1758,15 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
     if (activeCalendarId.present) {
       map['active_calendar_id'] = Variable<String>(activeCalendarId.value);
     }
+    if (followerCount.present) {
+      map['follower_count'] = Variable<int>(followerCount.value);
+    }
+    if (createdBy.present) {
+      map['created_by'] = Variable<String>(createdBy.value);
+    }
+    if (isArchived.present) {
+      map['is_archived'] = Variable<bool>(isArchived.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -1619,6 +1783,9 @@ class ScopeRowsCompanion extends UpdateCompanion<ScopeRow> {
           ..write('name: $name, ')
           ..write('activePolicyId: $activePolicyId, ')
           ..write('activeCalendarId: $activeCalendarId, ')
+          ..write('followerCount: $followerCount, ')
+          ..write('createdBy: $createdBy, ')
+          ..write('isArchived: $isArchived, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -2869,6 +3036,12 @@ class $UserProfileRowsTable extends UserProfileRows
   late final GeneratedColumn<String> mobile = GeneratedColumn<String>(
       'mobile', aliasedName, true,
       type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _registrationNumberMeta =
+      const VerificationMeta('registrationNumber');
+  @override
+  late final GeneratedColumn<String> registrationNumber =
+      GeneratedColumn<String>('registration_number', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
   static const VerificationMeta _activeFollowIdMeta =
       const VerificationMeta('activeFollowId');
   @override
@@ -2888,8 +3061,16 @@ class $UserProfileRowsTable extends UserProfileRows
       'updated_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
   @override
-  List<GeneratedColumn> get $columns =>
-      [uid, displayName, role, mobile, activeFollowId, createdAt, updatedAt];
+  List<GeneratedColumn> get $columns => [
+        uid,
+        displayName,
+        role,
+        mobile,
+        registrationNumber,
+        activeFollowId,
+        createdAt,
+        updatedAt
+      ];
   @override
   String get aliasedName => _alias ?? actualTableName;
   @override
@@ -2923,6 +3104,12 @@ class $UserProfileRowsTable extends UserProfileRows
     if (data.containsKey('mobile')) {
       context.handle(_mobileMeta,
           mobile.isAcceptableOrUnknown(data['mobile']!, _mobileMeta));
+    }
+    if (data.containsKey('registration_number')) {
+      context.handle(
+          _registrationNumberMeta,
+          registrationNumber.isAcceptableOrUnknown(
+              data['registration_number']!, _registrationNumberMeta));
     }
     if (data.containsKey('active_follow_id')) {
       context.handle(
@@ -2959,6 +3146,8 @@ class $UserProfileRowsTable extends UserProfileRows
           .read(DriftSqlType.string, data['${effectivePrefix}role'])!,
       mobile: attachedDatabase.typeMapping
           .read(DriftSqlType.string, data['${effectivePrefix}mobile']),
+      registrationNumber: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}registration_number']),
       activeFollowId: attachedDatabase.typeMapping.read(
           DriftSqlType.string, data['${effectivePrefix}active_follow_id']),
       createdAt: attachedDatabase.typeMapping
@@ -2979,6 +3168,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
   final String displayName;
   final String role;
   final String? mobile;
+  final String? registrationNumber;
   final String? activeFollowId;
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -2987,6 +3177,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       required this.displayName,
       required this.role,
       this.mobile,
+      this.registrationNumber,
       this.activeFollowId,
       required this.createdAt,
       required this.updatedAt});
@@ -2998,6 +3189,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
     map['role'] = Variable<String>(role);
     if (!nullToAbsent || mobile != null) {
       map['mobile'] = Variable<String>(mobile);
+    }
+    if (!nullToAbsent || registrationNumber != null) {
+      map['registration_number'] = Variable<String>(registrationNumber);
     }
     if (!nullToAbsent || activeFollowId != null) {
       map['active_follow_id'] = Variable<String>(activeFollowId);
@@ -3014,6 +3208,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       role: Value(role),
       mobile:
           mobile == null && nullToAbsent ? const Value.absent() : Value(mobile),
+      registrationNumber: registrationNumber == null && nullToAbsent
+          ? const Value.absent()
+          : Value(registrationNumber),
       activeFollowId: activeFollowId == null && nullToAbsent
           ? const Value.absent()
           : Value(activeFollowId),
@@ -3030,6 +3227,8 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       displayName: serializer.fromJson<String>(json['displayName']),
       role: serializer.fromJson<String>(json['role']),
       mobile: serializer.fromJson<String?>(json['mobile']),
+      registrationNumber:
+          serializer.fromJson<String?>(json['registrationNumber']),
       activeFollowId: serializer.fromJson<String?>(json['activeFollowId']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
@@ -3043,6 +3242,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
       'displayName': serializer.toJson<String>(displayName),
       'role': serializer.toJson<String>(role),
       'mobile': serializer.toJson<String?>(mobile),
+      'registrationNumber': serializer.toJson<String?>(registrationNumber),
       'activeFollowId': serializer.toJson<String?>(activeFollowId),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
@@ -3054,6 +3254,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           String? displayName,
           String? role,
           Value<String?> mobile = const Value.absent(),
+          Value<String?> registrationNumber = const Value.absent(),
           Value<String?> activeFollowId = const Value.absent(),
           DateTime? createdAt,
           DateTime? updatedAt}) =>
@@ -3062,6 +3263,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
         displayName: displayName ?? this.displayName,
         role: role ?? this.role,
         mobile: mobile.present ? mobile.value : this.mobile,
+        registrationNumber: registrationNumber.present
+            ? registrationNumber.value
+            : this.registrationNumber,
         activeFollowId:
             activeFollowId.present ? activeFollowId.value : this.activeFollowId,
         createdAt: createdAt ?? this.createdAt,
@@ -3074,6 +3278,9 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           data.displayName.present ? data.displayName.value : this.displayName,
       role: data.role.present ? data.role.value : this.role,
       mobile: data.mobile.present ? data.mobile.value : this.mobile,
+      registrationNumber: data.registrationNumber.present
+          ? data.registrationNumber.value
+          : this.registrationNumber,
       activeFollowId: data.activeFollowId.present
           ? data.activeFollowId.value
           : this.activeFollowId,
@@ -3089,6 +3296,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           ..write('displayName: $displayName, ')
           ..write('role: $role, ')
           ..write('mobile: $mobile, ')
+          ..write('registrationNumber: $registrationNumber, ')
           ..write('activeFollowId: $activeFollowId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
@@ -3097,8 +3305,8 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
   }
 
   @override
-  int get hashCode => Object.hash(
-      uid, displayName, role, mobile, activeFollowId, createdAt, updatedAt);
+  int get hashCode => Object.hash(uid, displayName, role, mobile,
+      registrationNumber, activeFollowId, createdAt, updatedAt);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3107,6 +3315,7 @@ class UserProfileRow extends DataClass implements Insertable<UserProfileRow> {
           other.displayName == this.displayName &&
           other.role == this.role &&
           other.mobile == this.mobile &&
+          other.registrationNumber == this.registrationNumber &&
           other.activeFollowId == this.activeFollowId &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
@@ -3117,6 +3326,7 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
   final Value<String> displayName;
   final Value<String> role;
   final Value<String?> mobile;
+  final Value<String?> registrationNumber;
   final Value<String?> activeFollowId;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
@@ -3126,6 +3336,7 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
     this.displayName = const Value.absent(),
     this.role = const Value.absent(),
     this.mobile = const Value.absent(),
+    this.registrationNumber = const Value.absent(),
     this.activeFollowId = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
@@ -3136,6 +3347,7 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
     required String displayName,
     required String role,
     this.mobile = const Value.absent(),
+    this.registrationNumber = const Value.absent(),
     this.activeFollowId = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
@@ -3150,6 +3362,7 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
     Expression<String>? displayName,
     Expression<String>? role,
     Expression<String>? mobile,
+    Expression<String>? registrationNumber,
     Expression<String>? activeFollowId,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
@@ -3160,6 +3373,7 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
       if (displayName != null) 'display_name': displayName,
       if (role != null) 'role': role,
       if (mobile != null) 'mobile': mobile,
+      if (registrationNumber != null) 'registration_number': registrationNumber,
       if (activeFollowId != null) 'active_follow_id': activeFollowId,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
@@ -3172,6 +3386,7 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
       Value<String>? displayName,
       Value<String>? role,
       Value<String?>? mobile,
+      Value<String?>? registrationNumber,
       Value<String?>? activeFollowId,
       Value<DateTime>? createdAt,
       Value<DateTime>? updatedAt,
@@ -3181,6 +3396,7 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
       displayName: displayName ?? this.displayName,
       role: role ?? this.role,
       mobile: mobile ?? this.mobile,
+      registrationNumber: registrationNumber ?? this.registrationNumber,
       activeFollowId: activeFollowId ?? this.activeFollowId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -3202,6 +3418,9 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
     }
     if (mobile.present) {
       map['mobile'] = Variable<String>(mobile.value);
+    }
+    if (registrationNumber.present) {
+      map['registration_number'] = Variable<String>(registrationNumber.value);
     }
     if (activeFollowId.present) {
       map['active_follow_id'] = Variable<String>(activeFollowId.value);
@@ -3225,6 +3444,7 @@ class UserProfileRowsCompanion extends UpdateCompanion<UserProfileRow> {
           ..write('displayName: $displayName, ')
           ..write('role: $role, ')
           ..write('mobile: $mobile, ')
+          ..write('registrationNumber: $registrationNumber, ')
           ..write('activeFollowId: $activeFollowId, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
@@ -3331,6 +3551,12 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
   late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
       'updated_at', aliasedName, false,
       type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _creditRulesMeta =
+      const VerificationMeta('creditRules');
+  @override
+  late final GeneratedColumn<String> creditRules = GeneratedColumn<String>(
+      'credit_rules', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
   @override
   List<GeneratedColumn> get $columns => [
         policyId,
@@ -3347,7 +3573,8 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
         weeklyOffs,
         startDate,
         endDate,
-        updatedAt
+        updatedAt,
+        creditRules
       ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -3454,6 +3681,12 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
     } else if (isInserting) {
       context.missing(_updatedAtMeta);
     }
+    if (data.containsKey('credit_rules')) {
+      context.handle(
+          _creditRulesMeta,
+          creditRules.isAcceptableOrUnknown(
+              data['credit_rules']!, _creditRulesMeta));
+    }
     return context;
   }
 
@@ -3493,6 +3726,8 @@ class $OrganizationPolicyRowsTable extends OrganizationPolicyRows
           .read(DriftSqlType.dateTime, data['${effectivePrefix}end_date']),
       updatedAt: attachedDatabase.typeMapping
           .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+      creditRules: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}credit_rules']),
     );
   }
 
@@ -3519,6 +3754,7 @@ class OrganizationPolicyRow extends DataClass
   final DateTime? startDate;
   final DateTime? endDate;
   final DateTime updatedAt;
+  final String? creditRules;
   const OrganizationPolicyRow(
       {required this.policyId,
       required this.organizationId,
@@ -3534,7 +3770,8 @@ class OrganizationPolicyRow extends DataClass
       required this.weeklyOffs,
       this.startDate,
       this.endDate,
-      required this.updatedAt});
+      required this.updatedAt,
+      this.creditRules});
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
     final map = <String, Expression>{};
@@ -3559,6 +3796,9 @@ class OrganizationPolicyRow extends DataClass
       map['end_date'] = Variable<DateTime>(endDate);
     }
     map['updated_at'] = Variable<DateTime>(updatedAt);
+    if (!nullToAbsent || creditRules != null) {
+      map['credit_rules'] = Variable<String>(creditRules);
+    }
     return map;
   }
 
@@ -3585,6 +3825,9 @@ class OrganizationPolicyRow extends DataClass
           ? const Value.absent()
           : Value(endDate),
       updatedAt: Value(updatedAt),
+      creditRules: creditRules == null && nullToAbsent
+          ? const Value.absent()
+          : Value(creditRules),
     );
   }
 
@@ -3607,6 +3850,7 @@ class OrganizationPolicyRow extends DataClass
       startDate: serializer.fromJson<DateTime?>(json['startDate']),
       endDate: serializer.fromJson<DateTime?>(json['endDate']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+      creditRules: serializer.fromJson<String?>(json['creditRules']),
     );
   }
   @override
@@ -3628,6 +3872,7 @@ class OrganizationPolicyRow extends DataClass
       'startDate': serializer.toJson<DateTime?>(startDate),
       'endDate': serializer.toJson<DateTime?>(endDate),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
+      'creditRules': serializer.toJson<String?>(creditRules),
     };
   }
 
@@ -3646,7 +3891,8 @@ class OrganizationPolicyRow extends DataClass
           String? weeklyOffs,
           Value<DateTime?> startDate = const Value.absent(),
           Value<DateTime?> endDate = const Value.absent(),
-          DateTime? updatedAt}) =>
+          DateTime? updatedAt,
+          Value<String?> creditRules = const Value.absent()}) =>
       OrganizationPolicyRow(
         policyId: policyId ?? this.policyId,
         organizationId: organizationId ?? this.organizationId,
@@ -3664,6 +3910,7 @@ class OrganizationPolicyRow extends DataClass
         startDate: startDate.present ? startDate.value : this.startDate,
         endDate: endDate.present ? endDate.value : this.endDate,
         updatedAt: updatedAt ?? this.updatedAt,
+        creditRules: creditRules.present ? creditRules.value : this.creditRules,
       );
   OrganizationPolicyRow copyWithCompanion(
       OrganizationPolicyRowsCompanion data) {
@@ -3694,6 +3941,8 @@ class OrganizationPolicyRow extends DataClass
       startDate: data.startDate.present ? data.startDate.value : this.startDate,
       endDate: data.endDate.present ? data.endDate.value : this.endDate,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+      creditRules:
+          data.creditRules.present ? data.creditRules.value : this.creditRules,
     );
   }
 
@@ -3714,7 +3963,8 @@ class OrganizationPolicyRow extends DataClass
           ..write('weeklyOffs: $weeklyOffs, ')
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
-          ..write('updatedAt: $updatedAt')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('creditRules: $creditRules')
           ..write(')'))
         .toString();
   }
@@ -3735,7 +3985,8 @@ class OrganizationPolicyRow extends DataClass
       weeklyOffs,
       startDate,
       endDate,
-      updatedAt);
+      updatedAt,
+      creditRules);
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -3754,7 +4005,8 @@ class OrganizationPolicyRow extends DataClass
           other.weeklyOffs == this.weeklyOffs &&
           other.startDate == this.startDate &&
           other.endDate == this.endDate &&
-          other.updatedAt == this.updatedAt);
+          other.updatedAt == this.updatedAt &&
+          other.creditRules == this.creditRules);
 }
 
 class OrganizationPolicyRowsCompanion
@@ -3774,6 +4026,7 @@ class OrganizationPolicyRowsCompanion
   final Value<DateTime?> startDate;
   final Value<DateTime?> endDate;
   final Value<DateTime> updatedAt;
+  final Value<String?> creditRules;
   final Value<int> rowid;
   const OrganizationPolicyRowsCompanion({
     this.policyId = const Value.absent(),
@@ -3791,6 +4044,7 @@ class OrganizationPolicyRowsCompanion
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     this.updatedAt = const Value.absent(),
+    this.creditRules = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   OrganizationPolicyRowsCompanion.insert({
@@ -3809,6 +4063,7 @@ class OrganizationPolicyRowsCompanion
     this.startDate = const Value.absent(),
     this.endDate = const Value.absent(),
     required DateTime updatedAt,
+    this.creditRules = const Value.absent(),
     this.rowid = const Value.absent(),
   })  : policyId = Value(policyId),
         organizationId = Value(organizationId),
@@ -3837,6 +4092,7 @@ class OrganizationPolicyRowsCompanion
     Expression<DateTime>? startDate,
     Expression<DateTime>? endDate,
     Expression<DateTime>? updatedAt,
+    Expression<String>? creditRules,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -3855,6 +4111,7 @@ class OrganizationPolicyRowsCompanion
       if (startDate != null) 'start_date': startDate,
       if (endDate != null) 'end_date': endDate,
       if (updatedAt != null) 'updated_at': updatedAt,
+      if (creditRules != null) 'credit_rules': creditRules,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -3875,6 +4132,7 @@ class OrganizationPolicyRowsCompanion
       Value<DateTime?>? startDate,
       Value<DateTime?>? endDate,
       Value<DateTime>? updatedAt,
+      Value<String?>? creditRules,
       Value<int>? rowid}) {
     return OrganizationPolicyRowsCompanion(
       policyId: policyId ?? this.policyId,
@@ -3892,6 +4150,7 @@ class OrganizationPolicyRowsCompanion
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       updatedAt: updatedAt ?? this.updatedAt,
+      creditRules: creditRules ?? this.creditRules,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -3944,6 +4203,9 @@ class OrganizationPolicyRowsCompanion
     if (updatedAt.present) {
       map['updated_at'] = Variable<DateTime>(updatedAt.value);
     }
+    if (creditRules.present) {
+      map['credit_rules'] = Variable<String>(creditRules.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -3968,6 +4230,7 @@ class OrganizationPolicyRowsCompanion
           ..write('startDate: $startDate, ')
           ..write('endDate: $endDate, ')
           ..write('updatedAt: $updatedAt, ')
+          ..write('creditRules: $creditRules, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -5141,6 +5404,813 @@ class SyncMetadataRowsCompanion extends UpdateCompanion<SyncMetadataRow> {
   }
 }
 
+class $AttendancePlanRowsTable extends AttendancePlanRows
+    with TableInfo<$AttendancePlanRowsTable, AttendancePlanRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $AttendancePlanRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _organizationIdMeta =
+      const VerificationMeta('organizationId');
+  @override
+  late final GeneratedColumn<String> organizationId = GeneratedColumn<String>(
+      'organization_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _scopeIdMeta =
+      const VerificationMeta('scopeId');
+  @override
+  late final GeneratedColumn<String> scopeId = GeneratedColumn<String>(
+      'scope_id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _dateMeta = const VerificationMeta('date');
+  @override
+  late final GeneratedColumn<DateTime> date = GeneratedColumn<DateTime>(
+      'date', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  static const VerificationMeta _statusMeta = const VerificationMeta('status');
+  @override
+  late final GeneratedColumn<String> status = GeneratedColumn<String>(
+      'status', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _unitsMeta = const VerificationMeta('units');
+  @override
+  late final GeneratedColumn<double> units = GeneratedColumn<double>(
+      'units', aliasedName, false,
+      type: DriftSqlType.double, requiredDuringInsert: true);
+  static const VerificationMeta _leaveUnitsMeta =
+      const VerificationMeta('leaveUnits');
+  @override
+  late final GeneratedColumn<double> leaveUnits = GeneratedColumn<double>(
+      'leave_units', aliasedName, false,
+      type: DriftSqlType.double,
+      requiredDuringInsert: false,
+      defaultValue: const Constant(0));
+  static const VerificationMeta _policyVersionIdMeta =
+      const VerificationMeta('policyVersionId');
+  @override
+  late final GeneratedColumn<String> policyVersionId = GeneratedColumn<String>(
+      'policy_version_id', aliasedName, true,
+      type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _calendarVersionIdMeta =
+      const VerificationMeta('calendarVersionId');
+  @override
+  late final GeneratedColumn<String> calendarVersionId =
+      GeneratedColumn<String>('calendar_version_id', aliasedName, true,
+          type: DriftSqlType.string, requiredDuringInsert: false);
+  static const VerificationMeta _isDeletedMeta =
+      const VerificationMeta('isDeleted');
+  @override
+  late final GeneratedColumn<bool> isDeleted = GeneratedColumn<bool>(
+      'is_deleted', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints:
+          GeneratedColumn.constraintIsAlways('CHECK ("is_deleted" IN (0, 1))'),
+      defaultValue: const Constant(false));
+  static const VerificationMeta _pendingSyncMeta =
+      const VerificationMeta('pendingSync');
+  @override
+  late final GeneratedColumn<bool> pendingSync = GeneratedColumn<bool>(
+      'pending_sync', aliasedName, false,
+      type: DriftSqlType.bool,
+      requiredDuringInsert: false,
+      defaultConstraints: GeneratedColumn.constraintIsAlways(
+          'CHECK ("pending_sync" IN (0, 1))'),
+      defaultValue: const Constant(true));
+  static const VerificationMeta _updatedAtMeta =
+      const VerificationMeta('updatedAt');
+  @override
+  late final GeneratedColumn<DateTime> updatedAt = GeneratedColumn<DateTime>(
+      'updated_at', aliasedName, false,
+      type: DriftSqlType.dateTime, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [
+        id,
+        organizationId,
+        scopeId,
+        date,
+        status,
+        units,
+        leaveUnits,
+        policyVersionId,
+        calendarVersionId,
+        isDeleted,
+        pendingSync,
+        updatedAt
+      ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'attendance_plan_rows';
+  @override
+  VerificationContext validateIntegrity(Insertable<AttendancePlanRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('organization_id')) {
+      context.handle(
+          _organizationIdMeta,
+          organizationId.isAcceptableOrUnknown(
+              data['organization_id']!, _organizationIdMeta));
+    } else if (isInserting) {
+      context.missing(_organizationIdMeta);
+    }
+    if (data.containsKey('scope_id')) {
+      context.handle(_scopeIdMeta,
+          scopeId.isAcceptableOrUnknown(data['scope_id']!, _scopeIdMeta));
+    } else if (isInserting) {
+      context.missing(_scopeIdMeta);
+    }
+    if (data.containsKey('date')) {
+      context.handle(
+          _dateMeta, date.isAcceptableOrUnknown(data['date']!, _dateMeta));
+    } else if (isInserting) {
+      context.missing(_dateMeta);
+    }
+    if (data.containsKey('status')) {
+      context.handle(_statusMeta,
+          status.isAcceptableOrUnknown(data['status']!, _statusMeta));
+    } else if (isInserting) {
+      context.missing(_statusMeta);
+    }
+    if (data.containsKey('units')) {
+      context.handle(
+          _unitsMeta, units.isAcceptableOrUnknown(data['units']!, _unitsMeta));
+    } else if (isInserting) {
+      context.missing(_unitsMeta);
+    }
+    if (data.containsKey('leave_units')) {
+      context.handle(
+          _leaveUnitsMeta,
+          leaveUnits.isAcceptableOrUnknown(
+              data['leave_units']!, _leaveUnitsMeta));
+    }
+    if (data.containsKey('policy_version_id')) {
+      context.handle(
+          _policyVersionIdMeta,
+          policyVersionId.isAcceptableOrUnknown(
+              data['policy_version_id']!, _policyVersionIdMeta));
+    }
+    if (data.containsKey('calendar_version_id')) {
+      context.handle(
+          _calendarVersionIdMeta,
+          calendarVersionId.isAcceptableOrUnknown(
+              data['calendar_version_id']!, _calendarVersionIdMeta));
+    }
+    if (data.containsKey('is_deleted')) {
+      context.handle(_isDeletedMeta,
+          isDeleted.isAcceptableOrUnknown(data['is_deleted']!, _isDeletedMeta));
+    }
+    if (data.containsKey('pending_sync')) {
+      context.handle(
+          _pendingSyncMeta,
+          pendingSync.isAcceptableOrUnknown(
+              data['pending_sync']!, _pendingSyncMeta));
+    }
+    if (data.containsKey('updated_at')) {
+      context.handle(_updatedAtMeta,
+          updatedAt.isAcceptableOrUnknown(data['updated_at']!, _updatedAtMeta));
+    } else if (isInserting) {
+      context.missing(_updatedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  AttendancePlanRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return AttendancePlanRow(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      organizationId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}organization_id'])!,
+      scopeId: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}scope_id'])!,
+      date: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}date'])!,
+      status: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}status'])!,
+      units: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}units'])!,
+      leaveUnits: attachedDatabase.typeMapping
+          .read(DriftSqlType.double, data['${effectivePrefix}leave_units'])!,
+      policyVersionId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}policy_version_id']),
+      calendarVersionId: attachedDatabase.typeMapping.read(
+          DriftSqlType.string, data['${effectivePrefix}calendar_version_id']),
+      isDeleted: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}is_deleted'])!,
+      pendingSync: attachedDatabase.typeMapping
+          .read(DriftSqlType.bool, data['${effectivePrefix}pending_sync'])!,
+      updatedAt: attachedDatabase.typeMapping
+          .read(DriftSqlType.dateTime, data['${effectivePrefix}updated_at'])!,
+    );
+  }
+
+  @override
+  $AttendancePlanRowsTable createAlias(String alias) {
+    return $AttendancePlanRowsTable(attachedDatabase, alias);
+  }
+}
+
+class AttendancePlanRow extends DataClass
+    implements Insertable<AttendancePlanRow> {
+  final String id;
+  final String organizationId;
+  final String scopeId;
+  final DateTime date;
+  final String status;
+  final double units;
+  final double leaveUnits;
+  final String? policyVersionId;
+  final String? calendarVersionId;
+  final bool isDeleted;
+  final bool pendingSync;
+  final DateTime updatedAt;
+  const AttendancePlanRow(
+      {required this.id,
+      required this.organizationId,
+      required this.scopeId,
+      required this.date,
+      required this.status,
+      required this.units,
+      required this.leaveUnits,
+      this.policyVersionId,
+      this.calendarVersionId,
+      required this.isDeleted,
+      required this.pendingSync,
+      required this.updatedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['organization_id'] = Variable<String>(organizationId);
+    map['scope_id'] = Variable<String>(scopeId);
+    map['date'] = Variable<DateTime>(date);
+    map['status'] = Variable<String>(status);
+    map['units'] = Variable<double>(units);
+    map['leave_units'] = Variable<double>(leaveUnits);
+    if (!nullToAbsent || policyVersionId != null) {
+      map['policy_version_id'] = Variable<String>(policyVersionId);
+    }
+    if (!nullToAbsent || calendarVersionId != null) {
+      map['calendar_version_id'] = Variable<String>(calendarVersionId);
+    }
+    map['is_deleted'] = Variable<bool>(isDeleted);
+    map['pending_sync'] = Variable<bool>(pendingSync);
+    map['updated_at'] = Variable<DateTime>(updatedAt);
+    return map;
+  }
+
+  AttendancePlanRowsCompanion toCompanion(bool nullToAbsent) {
+    return AttendancePlanRowsCompanion(
+      id: Value(id),
+      organizationId: Value(organizationId),
+      scopeId: Value(scopeId),
+      date: Value(date),
+      status: Value(status),
+      units: Value(units),
+      leaveUnits: Value(leaveUnits),
+      policyVersionId: policyVersionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(policyVersionId),
+      calendarVersionId: calendarVersionId == null && nullToAbsent
+          ? const Value.absent()
+          : Value(calendarVersionId),
+      isDeleted: Value(isDeleted),
+      pendingSync: Value(pendingSync),
+      updatedAt: Value(updatedAt),
+    );
+  }
+
+  factory AttendancePlanRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return AttendancePlanRow(
+      id: serializer.fromJson<String>(json['id']),
+      organizationId: serializer.fromJson<String>(json['organizationId']),
+      scopeId: serializer.fromJson<String>(json['scopeId']),
+      date: serializer.fromJson<DateTime>(json['date']),
+      status: serializer.fromJson<String>(json['status']),
+      units: serializer.fromJson<double>(json['units']),
+      leaveUnits: serializer.fromJson<double>(json['leaveUnits']),
+      policyVersionId: serializer.fromJson<String?>(json['policyVersionId']),
+      calendarVersionId:
+          serializer.fromJson<String?>(json['calendarVersionId']),
+      isDeleted: serializer.fromJson<bool>(json['isDeleted']),
+      pendingSync: serializer.fromJson<bool>(json['pendingSync']),
+      updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'organizationId': serializer.toJson<String>(organizationId),
+      'scopeId': serializer.toJson<String>(scopeId),
+      'date': serializer.toJson<DateTime>(date),
+      'status': serializer.toJson<String>(status),
+      'units': serializer.toJson<double>(units),
+      'leaveUnits': serializer.toJson<double>(leaveUnits),
+      'policyVersionId': serializer.toJson<String?>(policyVersionId),
+      'calendarVersionId': serializer.toJson<String?>(calendarVersionId),
+      'isDeleted': serializer.toJson<bool>(isDeleted),
+      'pendingSync': serializer.toJson<bool>(pendingSync),
+      'updatedAt': serializer.toJson<DateTime>(updatedAt),
+    };
+  }
+
+  AttendancePlanRow copyWith(
+          {String? id,
+          String? organizationId,
+          String? scopeId,
+          DateTime? date,
+          String? status,
+          double? units,
+          double? leaveUnits,
+          Value<String?> policyVersionId = const Value.absent(),
+          Value<String?> calendarVersionId = const Value.absent(),
+          bool? isDeleted,
+          bool? pendingSync,
+          DateTime? updatedAt}) =>
+      AttendancePlanRow(
+        id: id ?? this.id,
+        organizationId: organizationId ?? this.organizationId,
+        scopeId: scopeId ?? this.scopeId,
+        date: date ?? this.date,
+        status: status ?? this.status,
+        units: units ?? this.units,
+        leaveUnits: leaveUnits ?? this.leaveUnits,
+        policyVersionId: policyVersionId.present
+            ? policyVersionId.value
+            : this.policyVersionId,
+        calendarVersionId: calendarVersionId.present
+            ? calendarVersionId.value
+            : this.calendarVersionId,
+        isDeleted: isDeleted ?? this.isDeleted,
+        pendingSync: pendingSync ?? this.pendingSync,
+        updatedAt: updatedAt ?? this.updatedAt,
+      );
+  AttendancePlanRow copyWithCompanion(AttendancePlanRowsCompanion data) {
+    return AttendancePlanRow(
+      id: data.id.present ? data.id.value : this.id,
+      organizationId: data.organizationId.present
+          ? data.organizationId.value
+          : this.organizationId,
+      scopeId: data.scopeId.present ? data.scopeId.value : this.scopeId,
+      date: data.date.present ? data.date.value : this.date,
+      status: data.status.present ? data.status.value : this.status,
+      units: data.units.present ? data.units.value : this.units,
+      leaveUnits:
+          data.leaveUnits.present ? data.leaveUnits.value : this.leaveUnits,
+      policyVersionId: data.policyVersionId.present
+          ? data.policyVersionId.value
+          : this.policyVersionId,
+      calendarVersionId: data.calendarVersionId.present
+          ? data.calendarVersionId.value
+          : this.calendarVersionId,
+      isDeleted: data.isDeleted.present ? data.isDeleted.value : this.isDeleted,
+      pendingSync:
+          data.pendingSync.present ? data.pendingSync.value : this.pendingSync,
+      updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AttendancePlanRow(')
+          ..write('id: $id, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('scopeId: $scopeId, ')
+          ..write('date: $date, ')
+          ..write('status: $status, ')
+          ..write('units: $units, ')
+          ..write('leaveUnits: $leaveUnits, ')
+          ..write('policyVersionId: $policyVersionId, ')
+          ..write('calendarVersionId: $calendarVersionId, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('pendingSync: $pendingSync, ')
+          ..write('updatedAt: $updatedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+      id,
+      organizationId,
+      scopeId,
+      date,
+      status,
+      units,
+      leaveUnits,
+      policyVersionId,
+      calendarVersionId,
+      isDeleted,
+      pendingSync,
+      updatedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is AttendancePlanRow &&
+          other.id == this.id &&
+          other.organizationId == this.organizationId &&
+          other.scopeId == this.scopeId &&
+          other.date == this.date &&
+          other.status == this.status &&
+          other.units == this.units &&
+          other.leaveUnits == this.leaveUnits &&
+          other.policyVersionId == this.policyVersionId &&
+          other.calendarVersionId == this.calendarVersionId &&
+          other.isDeleted == this.isDeleted &&
+          other.pendingSync == this.pendingSync &&
+          other.updatedAt == this.updatedAt);
+}
+
+class AttendancePlanRowsCompanion extends UpdateCompanion<AttendancePlanRow> {
+  final Value<String> id;
+  final Value<String> organizationId;
+  final Value<String> scopeId;
+  final Value<DateTime> date;
+  final Value<String> status;
+  final Value<double> units;
+  final Value<double> leaveUnits;
+  final Value<String?> policyVersionId;
+  final Value<String?> calendarVersionId;
+  final Value<bool> isDeleted;
+  final Value<bool> pendingSync;
+  final Value<DateTime> updatedAt;
+  final Value<int> rowid;
+  const AttendancePlanRowsCompanion({
+    this.id = const Value.absent(),
+    this.organizationId = const Value.absent(),
+    this.scopeId = const Value.absent(),
+    this.date = const Value.absent(),
+    this.status = const Value.absent(),
+    this.units = const Value.absent(),
+    this.leaveUnits = const Value.absent(),
+    this.policyVersionId = const Value.absent(),
+    this.calendarVersionId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.pendingSync = const Value.absent(),
+    this.updatedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  AttendancePlanRowsCompanion.insert({
+    required String id,
+    required String organizationId,
+    required String scopeId,
+    required DateTime date,
+    required String status,
+    required double units,
+    this.leaveUnits = const Value.absent(),
+    this.policyVersionId = const Value.absent(),
+    this.calendarVersionId = const Value.absent(),
+    this.isDeleted = const Value.absent(),
+    this.pendingSync = const Value.absent(),
+    required DateTime updatedAt,
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        organizationId = Value(organizationId),
+        scopeId = Value(scopeId),
+        date = Value(date),
+        status = Value(status),
+        units = Value(units),
+        updatedAt = Value(updatedAt);
+  static Insertable<AttendancePlanRow> custom({
+    Expression<String>? id,
+    Expression<String>? organizationId,
+    Expression<String>? scopeId,
+    Expression<DateTime>? date,
+    Expression<String>? status,
+    Expression<double>? units,
+    Expression<double>? leaveUnits,
+    Expression<String>? policyVersionId,
+    Expression<String>? calendarVersionId,
+    Expression<bool>? isDeleted,
+    Expression<bool>? pendingSync,
+    Expression<DateTime>? updatedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (organizationId != null) 'organization_id': organizationId,
+      if (scopeId != null) 'scope_id': scopeId,
+      if (date != null) 'date': date,
+      if (status != null) 'status': status,
+      if (units != null) 'units': units,
+      if (leaveUnits != null) 'leave_units': leaveUnits,
+      if (policyVersionId != null) 'policy_version_id': policyVersionId,
+      if (calendarVersionId != null) 'calendar_version_id': calendarVersionId,
+      if (isDeleted != null) 'is_deleted': isDeleted,
+      if (pendingSync != null) 'pending_sync': pendingSync,
+      if (updatedAt != null) 'updated_at': updatedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  AttendancePlanRowsCompanion copyWith(
+      {Value<String>? id,
+      Value<String>? organizationId,
+      Value<String>? scopeId,
+      Value<DateTime>? date,
+      Value<String>? status,
+      Value<double>? units,
+      Value<double>? leaveUnits,
+      Value<String?>? policyVersionId,
+      Value<String?>? calendarVersionId,
+      Value<bool>? isDeleted,
+      Value<bool>? pendingSync,
+      Value<DateTime>? updatedAt,
+      Value<int>? rowid}) {
+    return AttendancePlanRowsCompanion(
+      id: id ?? this.id,
+      organizationId: organizationId ?? this.organizationId,
+      scopeId: scopeId ?? this.scopeId,
+      date: date ?? this.date,
+      status: status ?? this.status,
+      units: units ?? this.units,
+      leaveUnits: leaveUnits ?? this.leaveUnits,
+      policyVersionId: policyVersionId ?? this.policyVersionId,
+      calendarVersionId: calendarVersionId ?? this.calendarVersionId,
+      isDeleted: isDeleted ?? this.isDeleted,
+      pendingSync: pendingSync ?? this.pendingSync,
+      updatedAt: updatedAt ?? this.updatedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (organizationId.present) {
+      map['organization_id'] = Variable<String>(organizationId.value);
+    }
+    if (scopeId.present) {
+      map['scope_id'] = Variable<String>(scopeId.value);
+    }
+    if (date.present) {
+      map['date'] = Variable<DateTime>(date.value);
+    }
+    if (status.present) {
+      map['status'] = Variable<String>(status.value);
+    }
+    if (units.present) {
+      map['units'] = Variable<double>(units.value);
+    }
+    if (leaveUnits.present) {
+      map['leave_units'] = Variable<double>(leaveUnits.value);
+    }
+    if (policyVersionId.present) {
+      map['policy_version_id'] = Variable<String>(policyVersionId.value);
+    }
+    if (calendarVersionId.present) {
+      map['calendar_version_id'] = Variable<String>(calendarVersionId.value);
+    }
+    if (isDeleted.present) {
+      map['is_deleted'] = Variable<bool>(isDeleted.value);
+    }
+    if (pendingSync.present) {
+      map['pending_sync'] = Variable<bool>(pendingSync.value);
+    }
+    if (updatedAt.present) {
+      map['updated_at'] = Variable<DateTime>(updatedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('AttendancePlanRowsCompanion(')
+          ..write('id: $id, ')
+          ..write('organizationId: $organizationId, ')
+          ..write('scopeId: $scopeId, ')
+          ..write('date: $date, ')
+          ..write('status: $status, ')
+          ..write('units: $units, ')
+          ..write('leaveUnits: $leaveUnits, ')
+          ..write('policyVersionId: $policyVersionId, ')
+          ..write('calendarVersionId: $calendarVersionId, ')
+          ..write('isDeleted: $isDeleted, ')
+          ..write('pendingSync: $pendingSync, ')
+          ..write('updatedAt: $updatedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
+class $CalendarStateRowsTable extends CalendarStateRows
+    with TableInfo<$CalendarStateRowsTable, CalendarStateRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CalendarStateRowsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+      'id', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  static const VerificationMeta _payloadMeta =
+      const VerificationMeta('payload');
+  @override
+  late final GeneratedColumn<String> payload = GeneratedColumn<String>(
+      'payload', aliasedName, false,
+      type: DriftSqlType.string, requiredDuringInsert: true);
+  @override
+  List<GeneratedColumn> get $columns => [id, payload];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'calendar_state_rows';
+  @override
+  VerificationContext validateIntegrity(Insertable<CalendarStateRow> instance,
+      {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('payload')) {
+      context.handle(_payloadMeta,
+          payload.isAcceptableOrUnknown(data['payload']!, _payloadMeta));
+    } else if (isInserting) {
+      context.missing(_payloadMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CalendarStateRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CalendarStateRow(
+      id: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      payload: attachedDatabase.typeMapping
+          .read(DriftSqlType.string, data['${effectivePrefix}payload'])!,
+    );
+  }
+
+  @override
+  $CalendarStateRowsTable createAlias(String alias) {
+    return $CalendarStateRowsTable(attachedDatabase, alias);
+  }
+}
+
+class CalendarStateRow extends DataClass
+    implements Insertable<CalendarStateRow> {
+  final String id;
+  final String payload;
+  const CalendarStateRow({required this.id, required this.payload});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['payload'] = Variable<String>(payload);
+    return map;
+  }
+
+  CalendarStateRowsCompanion toCompanion(bool nullToAbsent) {
+    return CalendarStateRowsCompanion(
+      id: Value(id),
+      payload: Value(payload),
+    );
+  }
+
+  factory CalendarStateRow.fromJson(Map<String, dynamic> json,
+      {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CalendarStateRow(
+      id: serializer.fromJson<String>(json['id']),
+      payload: serializer.fromJson<String>(json['payload']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'payload': serializer.toJson<String>(payload),
+    };
+  }
+
+  CalendarStateRow copyWith({String? id, String? payload}) => CalendarStateRow(
+        id: id ?? this.id,
+        payload: payload ?? this.payload,
+      );
+  CalendarStateRow copyWithCompanion(CalendarStateRowsCompanion data) {
+    return CalendarStateRow(
+      id: data.id.present ? data.id.value : this.id,
+      payload: data.payload.present ? data.payload.value : this.payload,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarStateRow(')
+          ..write('id: $id, ')
+          ..write('payload: $payload')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, payload);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CalendarStateRow &&
+          other.id == this.id &&
+          other.payload == this.payload);
+}
+
+class CalendarStateRowsCompanion extends UpdateCompanion<CalendarStateRow> {
+  final Value<String> id;
+  final Value<String> payload;
+  final Value<int> rowid;
+  const CalendarStateRowsCompanion({
+    this.id = const Value.absent(),
+    this.payload = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CalendarStateRowsCompanion.insert({
+    required String id,
+    required String payload,
+    this.rowid = const Value.absent(),
+  })  : id = Value(id),
+        payload = Value(payload);
+  static Insertable<CalendarStateRow> custom({
+    Expression<String>? id,
+    Expression<String>? payload,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (payload != null) 'payload': payload,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CalendarStateRowsCompanion copyWith(
+      {Value<String>? id, Value<String>? payload, Value<int>? rowid}) {
+    return CalendarStateRowsCompanion(
+      id: id ?? this.id,
+      payload: payload ?? this.payload,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (payload.present) {
+      map['payload'] = Variable<String>(payload.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CalendarStateRowsCompanion(')
+          ..write('id: $id, ')
+          ..write('payload: $payload, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$StandInDatabase extends GeneratedDatabase {
   _$StandInDatabase(QueryExecutor e) : super(e);
   $StandInDatabaseManager get managers => $StandInDatabaseManager(this);
@@ -5159,6 +6229,10 @@ abstract class _$StandInDatabase extends GeneratedDatabase {
   late final $SyncQueueRowsTable syncQueueRows = $SyncQueueRowsTable(this);
   late final $SyncMetadataRowsTable syncMetadataRows =
       $SyncMetadataRowsTable(this);
+  late final $AttendancePlanRowsTable attendancePlanRows =
+      $AttendancePlanRowsTable(this);
+  late final $CalendarStateRowsTable calendarStateRows =
+      $CalendarStateRowsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -5173,7 +6247,9 @@ abstract class _$StandInDatabase extends GeneratedDatabase {
         organizationPolicyRows,
         calendarRows,
         syncQueueRows,
-        syncMetadataRows
+        syncMetadataRows,
+        attendancePlanRows,
+        calendarStateRows
       ];
 }
 
@@ -5191,6 +6267,7 @@ typedef $$AttendanceTableTableCreateCompanionBuilder = AttendanceTableCompanion
   Value<bool> pendingSync,
   Value<String?> syncError,
   required DateTime updatedAt,
+  Value<String?> protectedData,
   Value<int> rowid,
 });
 typedef $$AttendanceTableTableUpdateCompanionBuilder = AttendanceTableCompanion
@@ -5207,6 +6284,7 @@ typedef $$AttendanceTableTableUpdateCompanionBuilder = AttendanceTableCompanion
   Value<bool> pendingSync,
   Value<String?> syncError,
   Value<DateTime> updatedAt,
+  Value<String?> protectedData,
   Value<int> rowid,
 });
 
@@ -5258,6 +6336,9 @@ class $$AttendanceTableTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get protectedData => $composableBuilder(
+      column: $table.protectedData, builder: (column) => ColumnFilters(column));
 }
 
 class $$AttendanceTableTableOrderingComposer
@@ -5309,6 +6390,10 @@ class $$AttendanceTableTableOrderingComposer
 
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get protectedData => $composableBuilder(
+      column: $table.protectedData,
+      builder: (column) => ColumnOrderings(column));
 }
 
 class $$AttendanceTableTableAnnotationComposer
@@ -5355,6 +6440,9 @@ class $$AttendanceTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get protectedData => $composableBuilder(
+      column: $table.protectedData, builder: (column) => column);
 }
 
 class $$AttendanceTableTableTableManager extends RootTableManager<
@@ -5397,6 +6485,7 @@ class $$AttendanceTableTableTableManager extends RootTableManager<
             Value<bool> pendingSync = const Value.absent(),
             Value<String?> syncError = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
+            Value<String?> protectedData = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               AttendanceTableCompanion(
@@ -5412,6 +6501,7 @@ class $$AttendanceTableTableTableManager extends RootTableManager<
             pendingSync: pendingSync,
             syncError: syncError,
             updatedAt: updatedAt,
+            protectedData: protectedData,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -5427,6 +6517,7 @@ class $$AttendanceTableTableTableManager extends RootTableManager<
             Value<bool> pendingSync = const Value.absent(),
             Value<String?> syncError = const Value.absent(),
             required DateTime updatedAt,
+            Value<String?> protectedData = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               AttendanceTableCompanion.insert(
@@ -5442,6 +6533,7 @@ class $$AttendanceTableTableTableManager extends RootTableManager<
             pendingSync: pendingSync,
             syncError: syncError,
             updatedAt: updatedAt,
+            protectedData: protectedData,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -5746,6 +6838,9 @@ typedef $$ScopeRowsTableCreateCompanionBuilder = ScopeRowsCompanion Function({
   required String name,
   Value<String?> activePolicyId,
   Value<String?> activeCalendarId,
+  Value<int> followerCount,
+  Value<String?> createdBy,
+  Value<bool> isArchived,
   Value<int> rowid,
 });
 typedef $$ScopeRowsTableUpdateCompanionBuilder = ScopeRowsCompanion Function({
@@ -5756,6 +6851,9 @@ typedef $$ScopeRowsTableUpdateCompanionBuilder = ScopeRowsCompanion Function({
   Value<String> name,
   Value<String?> activePolicyId,
   Value<String?> activeCalendarId,
+  Value<int> followerCount,
+  Value<String?> createdBy,
+  Value<bool> isArchived,
   Value<int> rowid,
 });
 
@@ -5791,6 +6889,15 @@ class $$ScopeRowsTableFilterComposer
   ColumnFilters<String> get activeCalendarId => $composableBuilder(
       column: $table.activeCalendarId,
       builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get followerCount => $composableBuilder(
+      column: $table.followerCount, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get createdBy => $composableBuilder(
+      column: $table.createdBy, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isArchived => $composableBuilder(
+      column: $table.isArchived, builder: (column) => ColumnFilters(column));
 }
 
 class $$ScopeRowsTableOrderingComposer
@@ -5825,6 +6932,16 @@ class $$ScopeRowsTableOrderingComposer
   ColumnOrderings<String> get activeCalendarId => $composableBuilder(
       column: $table.activeCalendarId,
       builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get followerCount => $composableBuilder(
+      column: $table.followerCount,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get createdBy => $composableBuilder(
+      column: $table.createdBy, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isArchived => $composableBuilder(
+      column: $table.isArchived, builder: (column) => ColumnOrderings(column));
 }
 
 class $$ScopeRowsTableAnnotationComposer
@@ -5856,6 +6973,15 @@ class $$ScopeRowsTableAnnotationComposer
 
   GeneratedColumn<String> get activeCalendarId => $composableBuilder(
       column: $table.activeCalendarId, builder: (column) => column);
+
+  GeneratedColumn<int> get followerCount => $composableBuilder(
+      column: $table.followerCount, builder: (column) => column);
+
+  GeneratedColumn<String> get createdBy =>
+      $composableBuilder(column: $table.createdBy, builder: (column) => column);
+
+  GeneratedColumn<bool> get isArchived => $composableBuilder(
+      column: $table.isArchived, builder: (column) => column);
 }
 
 class $$ScopeRowsTableTableManager extends RootTableManager<
@@ -5888,6 +7014,9 @@ class $$ScopeRowsTableTableManager extends RootTableManager<
             Value<String> name = const Value.absent(),
             Value<String?> activePolicyId = const Value.absent(),
             Value<String?> activeCalendarId = const Value.absent(),
+            Value<int> followerCount = const Value.absent(),
+            Value<String?> createdBy = const Value.absent(),
+            Value<bool> isArchived = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               ScopeRowsCompanion(
@@ -5898,6 +7027,9 @@ class $$ScopeRowsTableTableManager extends RootTableManager<
             name: name,
             activePolicyId: activePolicyId,
             activeCalendarId: activeCalendarId,
+            followerCount: followerCount,
+            createdBy: createdBy,
+            isArchived: isArchived,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -5908,6 +7040,9 @@ class $$ScopeRowsTableTableManager extends RootTableManager<
             required String name,
             Value<String?> activePolicyId = const Value.absent(),
             Value<String?> activeCalendarId = const Value.absent(),
+            Value<int> followerCount = const Value.absent(),
+            Value<String?> createdBy = const Value.absent(),
+            Value<bool> isArchived = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               ScopeRowsCompanion.insert(
@@ -5918,6 +7053,9 @@ class $$ScopeRowsTableTableManager extends RootTableManager<
             name: name,
             activePolicyId: activePolicyId,
             activeCalendarId: activeCalendarId,
+            followerCount: followerCount,
+            createdBy: createdBy,
+            isArchived: isArchived,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -6489,6 +7627,7 @@ typedef $$UserProfileRowsTableCreateCompanionBuilder = UserProfileRowsCompanion
   required String displayName,
   required String role,
   Value<String?> mobile,
+  Value<String?> registrationNumber,
   Value<String?> activeFollowId,
   required DateTime createdAt,
   required DateTime updatedAt,
@@ -6500,6 +7639,7 @@ typedef $$UserProfileRowsTableUpdateCompanionBuilder = UserProfileRowsCompanion
   Value<String> displayName,
   Value<String> role,
   Value<String?> mobile,
+  Value<String?> registrationNumber,
   Value<String?> activeFollowId,
   Value<DateTime> createdAt,
   Value<DateTime> updatedAt,
@@ -6526,6 +7666,10 @@ class $$UserProfileRowsTableFilterComposer
 
   ColumnFilters<String> get mobile => $composableBuilder(
       column: $table.mobile, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get registrationNumber => $composableBuilder(
+      column: $table.registrationNumber,
+      builder: (column) => ColumnFilters(column));
 
   ColumnFilters<String> get activeFollowId => $composableBuilder(
       column: $table.activeFollowId,
@@ -6559,6 +7703,10 @@ class $$UserProfileRowsTableOrderingComposer
   ColumnOrderings<String> get mobile => $composableBuilder(
       column: $table.mobile, builder: (column) => ColumnOrderings(column));
 
+  ColumnOrderings<String> get registrationNumber => $composableBuilder(
+      column: $table.registrationNumber,
+      builder: (column) => ColumnOrderings(column));
+
   ColumnOrderings<String> get activeFollowId => $composableBuilder(
       column: $table.activeFollowId,
       builder: (column) => ColumnOrderings(column));
@@ -6590,6 +7738,9 @@ class $$UserProfileRowsTableAnnotationComposer
 
   GeneratedColumn<String> get mobile =>
       $composableBuilder(column: $table.mobile, builder: (column) => column);
+
+  GeneratedColumn<String> get registrationNumber => $composableBuilder(
+      column: $table.registrationNumber, builder: (column) => column);
 
   GeneratedColumn<String> get activeFollowId => $composableBuilder(
       column: $table.activeFollowId, builder: (column) => column);
@@ -6632,6 +7783,7 @@ class $$UserProfileRowsTableTableManager extends RootTableManager<
             Value<String> displayName = const Value.absent(),
             Value<String> role = const Value.absent(),
             Value<String?> mobile = const Value.absent(),
+            Value<String?> registrationNumber = const Value.absent(),
             Value<String?> activeFollowId = const Value.absent(),
             Value<DateTime> createdAt = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
@@ -6642,6 +7794,7 @@ class $$UserProfileRowsTableTableManager extends RootTableManager<
             displayName: displayName,
             role: role,
             mobile: mobile,
+            registrationNumber: registrationNumber,
             activeFollowId: activeFollowId,
             createdAt: createdAt,
             updatedAt: updatedAt,
@@ -6652,6 +7805,7 @@ class $$UserProfileRowsTableTableManager extends RootTableManager<
             required String displayName,
             required String role,
             Value<String?> mobile = const Value.absent(),
+            Value<String?> registrationNumber = const Value.absent(),
             Value<String?> activeFollowId = const Value.absent(),
             required DateTime createdAt,
             required DateTime updatedAt,
@@ -6662,6 +7816,7 @@ class $$UserProfileRowsTableTableManager extends RootTableManager<
             displayName: displayName,
             role: role,
             mobile: mobile,
+            registrationNumber: registrationNumber,
             activeFollowId: activeFollowId,
             createdAt: createdAt,
             updatedAt: updatedAt,
@@ -6706,6 +7861,7 @@ typedef $$OrganizationPolicyRowsTableCreateCompanionBuilder
   Value<DateTime?> startDate,
   Value<DateTime?> endDate,
   required DateTime updatedAt,
+  Value<String?> creditRules,
   Value<int> rowid,
 });
 typedef $$OrganizationPolicyRowsTableUpdateCompanionBuilder
@@ -6725,6 +7881,7 @@ typedef $$OrganizationPolicyRowsTableUpdateCompanionBuilder
   Value<DateTime?> startDate,
   Value<DateTime?> endDate,
   Value<DateTime> updatedAt,
+  Value<String?> creditRules,
   Value<int> rowid,
 });
 
@@ -6785,6 +7942,9 @@ class $$OrganizationPolicyRowsTableFilterComposer
 
   ColumnFilters<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get creditRules => $composableBuilder(
+      column: $table.creditRules, builder: (column) => ColumnFilters(column));
 }
 
 class $$OrganizationPolicyRowsTableOrderingComposer
@@ -6845,6 +8005,9 @@ class $$OrganizationPolicyRowsTableOrderingComposer
 
   ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
       column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get creditRules => $composableBuilder(
+      column: $table.creditRules, builder: (column) => ColumnOrderings(column));
 }
 
 class $$OrganizationPolicyRowsTableAnnotationComposer
@@ -6900,6 +8063,9 @@ class $$OrganizationPolicyRowsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get updatedAt =>
       $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+
+  GeneratedColumn<String> get creditRules => $composableBuilder(
+      column: $table.creditRules, builder: (column) => column);
 }
 
 class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
@@ -6948,6 +8114,7 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             Value<DateTime?> startDate = const Value.absent(),
             Value<DateTime?> endDate = const Value.absent(),
             Value<DateTime> updatedAt = const Value.absent(),
+            Value<String?> creditRules = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               OrganizationPolicyRowsCompanion(
@@ -6966,6 +8133,7 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             startDate: startDate,
             endDate: endDate,
             updatedAt: updatedAt,
+            creditRules: creditRules,
             rowid: rowid,
           ),
           createCompanionCallback: ({
@@ -6984,6 +8152,7 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             Value<DateTime?> startDate = const Value.absent(),
             Value<DateTime?> endDate = const Value.absent(),
             required DateTime updatedAt,
+            Value<String?> creditRules = const Value.absent(),
             Value<int> rowid = const Value.absent(),
           }) =>
               OrganizationPolicyRowsCompanion.insert(
@@ -7002,6 +8171,7 @@ class $$OrganizationPolicyRowsTableTableManager extends RootTableManager<
             startDate: startDate,
             endDate: endDate,
             updatedAt: updatedAt,
+            creditRules: creditRules,
             rowid: rowid,
           ),
           withReferenceMapper: (p0) => p0
@@ -7632,6 +8802,426 @@ typedef $$SyncMetadataRowsTableProcessedTableManager = ProcessedTableManager<
     ),
     SyncMetadataRow,
     PrefetchHooks Function()>;
+typedef $$AttendancePlanRowsTableCreateCompanionBuilder
+    = AttendancePlanRowsCompanion Function({
+  required String id,
+  required String organizationId,
+  required String scopeId,
+  required DateTime date,
+  required String status,
+  required double units,
+  Value<double> leaveUnits,
+  Value<String?> policyVersionId,
+  Value<String?> calendarVersionId,
+  Value<bool> isDeleted,
+  Value<bool> pendingSync,
+  required DateTime updatedAt,
+  Value<int> rowid,
+});
+typedef $$AttendancePlanRowsTableUpdateCompanionBuilder
+    = AttendancePlanRowsCompanion Function({
+  Value<String> id,
+  Value<String> organizationId,
+  Value<String> scopeId,
+  Value<DateTime> date,
+  Value<String> status,
+  Value<double> units,
+  Value<double> leaveUnits,
+  Value<String?> policyVersionId,
+  Value<String?> calendarVersionId,
+  Value<bool> isDeleted,
+  Value<bool> pendingSync,
+  Value<DateTime> updatedAt,
+  Value<int> rowid,
+});
+
+class $$AttendancePlanRowsTableFilterComposer
+    extends Composer<_$StandInDatabase, $AttendancePlanRowsTable> {
+  $$AttendancePlanRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get organizationId => $composableBuilder(
+      column: $table.organizationId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get scopeId => $composableBuilder(
+      column: $table.scopeId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get date => $composableBuilder(
+      column: $table.date, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get units => $composableBuilder(
+      column: $table.units, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get leaveUnits => $composableBuilder(
+      column: $table.leaveUnits, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get policyVersionId => $composableBuilder(
+      column: $table.policyVersionId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get calendarVersionId => $composableBuilder(
+      column: $table.calendarVersionId,
+      builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get isDeleted => $composableBuilder(
+      column: $table.isDeleted, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get pendingSync => $composableBuilder(
+      column: $table.pendingSync, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$AttendancePlanRowsTableOrderingComposer
+    extends Composer<_$StandInDatabase, $AttendancePlanRowsTable> {
+  $$AttendancePlanRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get organizationId => $composableBuilder(
+      column: $table.organizationId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get scopeId => $composableBuilder(
+      column: $table.scopeId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get date => $composableBuilder(
+      column: $table.date, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get status => $composableBuilder(
+      column: $table.status, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get units => $composableBuilder(
+      column: $table.units, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get leaveUnits => $composableBuilder(
+      column: $table.leaveUnits, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get policyVersionId => $composableBuilder(
+      column: $table.policyVersionId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get calendarVersionId => $composableBuilder(
+      column: $table.calendarVersionId,
+      builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get isDeleted => $composableBuilder(
+      column: $table.isDeleted, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get pendingSync => $composableBuilder(
+      column: $table.pendingSync, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get updatedAt => $composableBuilder(
+      column: $table.updatedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$AttendancePlanRowsTableAnnotationComposer
+    extends Composer<_$StandInDatabase, $AttendancePlanRowsTable> {
+  $$AttendancePlanRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get organizationId => $composableBuilder(
+      column: $table.organizationId, builder: (column) => column);
+
+  GeneratedColumn<String> get scopeId =>
+      $composableBuilder(column: $table.scopeId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get date =>
+      $composableBuilder(column: $table.date, builder: (column) => column);
+
+  GeneratedColumn<String> get status =>
+      $composableBuilder(column: $table.status, builder: (column) => column);
+
+  GeneratedColumn<double> get units =>
+      $composableBuilder(column: $table.units, builder: (column) => column);
+
+  GeneratedColumn<double> get leaveUnits => $composableBuilder(
+      column: $table.leaveUnits, builder: (column) => column);
+
+  GeneratedColumn<String> get policyVersionId => $composableBuilder(
+      column: $table.policyVersionId, builder: (column) => column);
+
+  GeneratedColumn<String> get calendarVersionId => $composableBuilder(
+      column: $table.calendarVersionId, builder: (column) => column);
+
+  GeneratedColumn<bool> get isDeleted =>
+      $composableBuilder(column: $table.isDeleted, builder: (column) => column);
+
+  GeneratedColumn<bool> get pendingSync => $composableBuilder(
+      column: $table.pendingSync, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get updatedAt =>
+      $composableBuilder(column: $table.updatedAt, builder: (column) => column);
+}
+
+class $$AttendancePlanRowsTableTableManager extends RootTableManager<
+    _$StandInDatabase,
+    $AttendancePlanRowsTable,
+    AttendancePlanRow,
+    $$AttendancePlanRowsTableFilterComposer,
+    $$AttendancePlanRowsTableOrderingComposer,
+    $$AttendancePlanRowsTableAnnotationComposer,
+    $$AttendancePlanRowsTableCreateCompanionBuilder,
+    $$AttendancePlanRowsTableUpdateCompanionBuilder,
+    (
+      AttendancePlanRow,
+      BaseReferences<_$StandInDatabase, $AttendancePlanRowsTable,
+          AttendancePlanRow>
+    ),
+    AttendancePlanRow,
+    PrefetchHooks Function()> {
+  $$AttendancePlanRowsTableTableManager(
+      _$StandInDatabase db, $AttendancePlanRowsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$AttendancePlanRowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$AttendancePlanRowsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$AttendancePlanRowsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> organizationId = const Value.absent(),
+            Value<String> scopeId = const Value.absent(),
+            Value<DateTime> date = const Value.absent(),
+            Value<String> status = const Value.absent(),
+            Value<double> units = const Value.absent(),
+            Value<double> leaveUnits = const Value.absent(),
+            Value<String?> policyVersionId = const Value.absent(),
+            Value<String?> calendarVersionId = const Value.absent(),
+            Value<bool> isDeleted = const Value.absent(),
+            Value<bool> pendingSync = const Value.absent(),
+            Value<DateTime> updatedAt = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AttendancePlanRowsCompanion(
+            id: id,
+            organizationId: organizationId,
+            scopeId: scopeId,
+            date: date,
+            status: status,
+            units: units,
+            leaveUnits: leaveUnits,
+            policyVersionId: policyVersionId,
+            calendarVersionId: calendarVersionId,
+            isDeleted: isDeleted,
+            pendingSync: pendingSync,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String organizationId,
+            required String scopeId,
+            required DateTime date,
+            required String status,
+            required double units,
+            Value<double> leaveUnits = const Value.absent(),
+            Value<String?> policyVersionId = const Value.absent(),
+            Value<String?> calendarVersionId = const Value.absent(),
+            Value<bool> isDeleted = const Value.absent(),
+            Value<bool> pendingSync = const Value.absent(),
+            required DateTime updatedAt,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              AttendancePlanRowsCompanion.insert(
+            id: id,
+            organizationId: organizationId,
+            scopeId: scopeId,
+            date: date,
+            status: status,
+            units: units,
+            leaveUnits: leaveUnits,
+            policyVersionId: policyVersionId,
+            calendarVersionId: calendarVersionId,
+            isDeleted: isDeleted,
+            pendingSync: pendingSync,
+            updatedAt: updatedAt,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$AttendancePlanRowsTableProcessedTableManager = ProcessedTableManager<
+    _$StandInDatabase,
+    $AttendancePlanRowsTable,
+    AttendancePlanRow,
+    $$AttendancePlanRowsTableFilterComposer,
+    $$AttendancePlanRowsTableOrderingComposer,
+    $$AttendancePlanRowsTableAnnotationComposer,
+    $$AttendancePlanRowsTableCreateCompanionBuilder,
+    $$AttendancePlanRowsTableUpdateCompanionBuilder,
+    (
+      AttendancePlanRow,
+      BaseReferences<_$StandInDatabase, $AttendancePlanRowsTable,
+          AttendancePlanRow>
+    ),
+    AttendancePlanRow,
+    PrefetchHooks Function()>;
+typedef $$CalendarStateRowsTableCreateCompanionBuilder
+    = CalendarStateRowsCompanion Function({
+  required String id,
+  required String payload,
+  Value<int> rowid,
+});
+typedef $$CalendarStateRowsTableUpdateCompanionBuilder
+    = CalendarStateRowsCompanion Function({
+  Value<String> id,
+  Value<String> payload,
+  Value<int> rowid,
+});
+
+class $$CalendarStateRowsTableFilterComposer
+    extends Composer<_$StandInDatabase, $CalendarStateRowsTable> {
+  $$CalendarStateRowsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get payload => $composableBuilder(
+      column: $table.payload, builder: (column) => ColumnFilters(column));
+}
+
+class $$CalendarStateRowsTableOrderingComposer
+    extends Composer<_$StandInDatabase, $CalendarStateRowsTable> {
+  $$CalendarStateRowsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+      column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get payload => $composableBuilder(
+      column: $table.payload, builder: (column) => ColumnOrderings(column));
+}
+
+class $$CalendarStateRowsTableAnnotationComposer
+    extends Composer<_$StandInDatabase, $CalendarStateRowsTable> {
+  $$CalendarStateRowsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get payload =>
+      $composableBuilder(column: $table.payload, builder: (column) => column);
+}
+
+class $$CalendarStateRowsTableTableManager extends RootTableManager<
+    _$StandInDatabase,
+    $CalendarStateRowsTable,
+    CalendarStateRow,
+    $$CalendarStateRowsTableFilterComposer,
+    $$CalendarStateRowsTableOrderingComposer,
+    $$CalendarStateRowsTableAnnotationComposer,
+    $$CalendarStateRowsTableCreateCompanionBuilder,
+    $$CalendarStateRowsTableUpdateCompanionBuilder,
+    (
+      CalendarStateRow,
+      BaseReferences<_$StandInDatabase, $CalendarStateRowsTable,
+          CalendarStateRow>
+    ),
+    CalendarStateRow,
+    PrefetchHooks Function()> {
+  $$CalendarStateRowsTableTableManager(
+      _$StandInDatabase db, $CalendarStateRowsTable table)
+      : super(TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CalendarStateRowsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$CalendarStateRowsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$CalendarStateRowsTableAnnotationComposer(
+                  $db: db, $table: table),
+          updateCompanionCallback: ({
+            Value<String> id = const Value.absent(),
+            Value<String> payload = const Value.absent(),
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              CalendarStateRowsCompanion(
+            id: id,
+            payload: payload,
+            rowid: rowid,
+          ),
+          createCompanionCallback: ({
+            required String id,
+            required String payload,
+            Value<int> rowid = const Value.absent(),
+          }) =>
+              CalendarStateRowsCompanion.insert(
+            id: id,
+            payload: payload,
+            rowid: rowid,
+          ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ));
+}
+
+typedef $$CalendarStateRowsTableProcessedTableManager = ProcessedTableManager<
+    _$StandInDatabase,
+    $CalendarStateRowsTable,
+    CalendarStateRow,
+    $$CalendarStateRowsTableFilterComposer,
+    $$CalendarStateRowsTableOrderingComposer,
+    $$CalendarStateRowsTableAnnotationComposer,
+    $$CalendarStateRowsTableCreateCompanionBuilder,
+    $$CalendarStateRowsTableUpdateCompanionBuilder,
+    (
+      CalendarStateRow,
+      BaseReferences<_$StandInDatabase, $CalendarStateRowsTable,
+          CalendarStateRow>
+    ),
+    CalendarStateRow,
+    PrefetchHooks Function()>;
 
 class $StandInDatabaseManager {
   final _$StandInDatabase _db;
@@ -7657,4 +9247,8 @@ class $StandInDatabaseManager {
       $$SyncQueueRowsTableTableManager(_db, _db.syncQueueRows);
   $$SyncMetadataRowsTableTableManager get syncMetadataRows =>
       $$SyncMetadataRowsTableTableManager(_db, _db.syncMetadataRows);
+  $$AttendancePlanRowsTableTableManager get attendancePlanRows =>
+      $$AttendancePlanRowsTableTableManager(_db, _db.attendancePlanRows);
+  $$CalendarStateRowsTableTableManager get calendarStateRows =>
+      $$CalendarStateRowsTableTableManager(_db, _db.calendarStateRows);
 }

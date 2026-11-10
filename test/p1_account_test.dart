@@ -138,6 +138,7 @@ void main() {
   test(
       'membership removal errors stop deletion and preserve the remaining account',
       () async {
+    await firestore.doc('organizations/org').set({'name': 'Organization', 'followerCount': 0});
     await remote.createUserProfile(profile);
     await remote.putFollow(
         'user',

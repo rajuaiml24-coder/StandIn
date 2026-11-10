@@ -12,6 +12,12 @@ import '../remote/firestore_org_remote.dart';
 import '../organization_repository.dart';
 import '../attendance_repository.dart';
 import '../../domain/attendance.dart';
+import '../../domain/planning.dart';
+import '../planning_repository.dart';
+import '../user_repository.dart';
+import '../calendar_repository.dart';
+import '../local_first_attendance_repository.dart';
+import '../../domain/calendar_updates.dart';
 
 class SyncEngine {
   SyncEngine(this._database, this._attendanceRemote, this._userRemote,
@@ -88,6 +94,9 @@ class SyncEngine {
         if (connection.contains(ConnectivityResult.none) || _stopping) return;
         await _pushLocalChanges();
         if (!_stopping) await _pullRemoteChanges();
+        if (!_stopping && await _database.nextSyncAttemptAt() == null) {
+          await _database.setLastSyncAt('backup:$uid', DateTime.now());
+        }
       } while (_pendingTrigger && !_stopping);
     } catch (_) {
       failed = true;
@@ -116,6 +125,48 @@ class SyncEngine {
         if (_stopping) return;
         try {
           switch (operation.operation) {
+            case 'putCalendarState':
+              final payload =
+                  jsonDecode(operation.payload) as Map<String, dynamic>;
+              final base = payload['base'] == null
+                  ? null
+                  : PersonalCalendarState.fromJson(
+                      Map<String, dynamic>.from(payload['base'] as Map));
+              final next = PersonalCalendarState.fromJson(
+                  Map<String, dynamic>.from(payload['next'] as Map));
+              final merged = await _userRemote.putCalendarState(
+                  uid, operation.entityId, base, next);
+              await _database.transaction(() async {
+                final current = await _database.getOperation(operation.id);
+                if (current?.payload == operation.payload) {
+                  await _database.saveCalendarState(
+                      operation.entityId, jsonEncode(merged.toJson()));
+                } else if (current != null) {
+                  final newer =
+                      jsonDecode(current.payload) as Map<String, dynamic>;
+                  final local = PersonalCalendarState.fromJson(
+                      Map<String, dynamic>.from(newer['next'] as Map));
+                  final rebased =
+                      PersonalCalendarState.merge(next, local, merged);
+                  await _database.saveCalendarState(
+                      operation.entityId, jsonEncode(rebased.toJson()));
+                  await _database.enqueue(SyncQueueRowsCompanion.insert(
+                      id: current.id,
+                      operation: current.operation,
+                      entityId: current.entityId,
+                      payload: jsonEncode(
+                          {'base': merged.toJson(), 'next': rebased.toJson()}),
+                      nextAttemptAt: DateTime.now(),
+                      createdAt: current.createdAt));
+                }
+              });
+              break;
+            case 'putPlan':
+              await _attendanceRemote.putPlan(
+                  uid,
+                  AttendancePlan.fromJson(
+                      jsonDecode(operation.payload) as Map<String, dynamic>));
+              break;
             case 'putOrganization':
               final json =
                   jsonDecode(operation.payload) as Map<String, dynamic>;
@@ -152,6 +203,11 @@ class SyncEngine {
                 basis: CalculationBasis.values.byName(pJson['basis'] as String),
                 fullUnit: (pJson['fullUnit'] as num).toDouble(),
                 halfUnit: (pJson['halfUnit'] as num).toDouble(),
+                leaveTreatment: LeaveTreatment.values
+                    .byName(pJson['leaveTreatment'] as String? ?? 'noCredit'),
+                weekOffCredit: pJson['weekOffCredit'] as bool? ?? false,
+                holidayCredit: pJson['holidayCredit'] as bool? ?? false,
+                oneVisitFullDay: pJson['oneVisitFullDay'] as bool? ?? false,
                 weeklyOffs: (pJson['weeklyOffs'] as List).cast<int>(),
                 startDate: pJson['startDate'] != null
                     ? DateTime.parse(pJson['startDate'] as String)
@@ -159,6 +215,8 @@ class SyncEngine {
                 endDate: pJson['endDate'] != null
                     ? DateTime.parse(pJson['endDate'] as String)
                     : null,
+                organizationId: orgId,
+                scopeId: pJson['scopeId'] as String? ?? 'global',
               );
               await _orgRemote.putPolicy(orgId, policy);
               break;
@@ -178,6 +236,8 @@ class SyncEngine {
                     .map((h) => Holiday.fromJson(h as Map<String, dynamic>))
                     .toList(),
                 isConfigured: cJson['isConfigured'] as bool? ?? false,
+                organizationId: orgId,
+                scopeId: cJson['scopeId'] as String? ?? 'global',
               );
               await _orgRemote.putCalendar(orgId, calendar);
               break;
@@ -185,20 +245,20 @@ class SyncEngine {
             case 'upsertAttendance':
               final json =
                   jsonDecode(operation.payload) as Map<String, dynamic>;
-              final record = AttendanceRecord(
-                date: DateTime.parse(json['date'] as String),
-                status:
-                    AttendanceStatus.values.byName(json['status'] as String),
-                actualUnits: (json['actualUnits'] as num).toDouble(),
-                expectedUnits: (json['expectedUnits'] as num).toDouble(),
-                organizationId: json['organizationId'] as String?,
-                scopeId: json['scopeId'] as String?,
-                policyVersionId: json['policyVersionId'] as String?,
-                calendarVersionId: json['calendarVersionId'] as String?,
-                source: json['source'] as String? ?? 'manual',
-              );
+              final record = AttendanceRecord.fromJson(json);
               await _attendanceRemote.putAttendance(
                   uid, operation.entityId, record);
+              await _database.transaction(() async {
+                final newer = await _database.getOperation(operation.id);
+                if (newer != null && newer.payload != operation.payload) {
+                  final payload =
+                      jsonDecode(newer.payload) as Map<String, dynamic>;
+                  payload['baseRevision'] = record.fingerprint;
+                  await _database.enqueue(newer
+                      .toCompanion(false)
+                      .copyWith(payload: Value(jsonEncode(payload))));
+                }
+              });
               break;
 
             case 'createUserProfile':
@@ -209,6 +269,7 @@ class SyncEngine {
                 displayName: json['displayName'] as String,
                 role: AppRole.values.byName(json['role'] as String),
                 mobile: json['mobile'] as String?,
+                registrationNumber: json['registrationNumber'] as String?,
                 activeFollowId: json['activeFollowId'] as String?,
               );
               await _userRemote.createUserProfile(profile);
@@ -275,6 +336,13 @@ class SyncEngine {
               }
               break;
 
+            case 'leaveOrganizationAtomic':
+              final json =
+                  jsonDecode(operation.payload) as Map<String, dynamic>;
+              await _orgRemote.leaveOrganizationAtomic(
+                  orgId: json['organizationId'] as String, uid: uid);
+              break;
+
             case 'putScope':
               final json =
                   jsonDecode(operation.payload) as Map<String, dynamic>;
@@ -287,6 +355,9 @@ class SyncEngine {
                 name: json['name'] as String,
                 activePolicyId: json['activePolicyId'] as String?,
                 activeCalendarId: json['activeCalendarId'] as String?,
+                createdBy: json['createdBy'] as String? ?? uid,
+                followerCount: (json['followerCount'] as num?)?.toInt() ?? 0,
+                isArchived: json['isArchived'] as bool? ?? false,
               );
               await _orgRemote.putScope(orgId, scope);
               break;
@@ -306,14 +377,44 @@ class SyncEngine {
   }
 
   Future<void> _pullRemoteChanges() async {
+    final lastPlanSync =
+        await _database.getLastSyncAt('plans:$uid') ?? DateTime(2000);
+    final planDelta = await _attendanceRemote.getPlansDelta(uid, lastPlanSync);
+    var planCheckpoint = lastPlanSync;
+    if (planDelta.isNotEmpty) {
+      await _database.transaction(() async {
+        for (final plan in planDelta) {
+          if (plan.updatedAt != null &&
+              plan.updatedAt!.isAfter(planCheckpoint)) {
+            planCheckpoint = plan.updatedAt!;
+          }
+          final local = await _database.getPlan(plan.id);
+          if (local?.pendingSync == true ||
+              await _database.getOperation('plan:${plan.id}') != null) {
+            continue;
+          }
+          await _database
+              .upsertPlan(PlanningRepository.toRow(plan, pendingSync: false));
+        }
+        if (planDelta.isNotEmpty) {
+          await _database.setLastSyncAt('plans:$uid', planCheckpoint);
+        }
+      });
+    }
+    await UserRepository(_database, _userRemote).syncFollows(uid);
     // 1. Recover Following Context if local state is empty (New Device path)
     final profile = await _userRemote.watchProfile(uid).first;
     if (profile?.activeFollowId != null) {
-      final follow = await _database.getFollow(profile!.activeFollowId!);
+      await CalendarRepository(_database, _userRemote,
+              uid: uid, followId: profile!.activeFollowId!)
+          .refresh();
+      final follow = await _database.getFollow(profile.activeFollowId!);
       final org =
           await _database.getOrganization(follow?.organizationId ?? 'none');
 
-      if (org == null) {
+      if (org == null ||
+          await _database.getOperation('follow:${profile.activeFollowId!}') ==
+              null) {
         // Essential metadata missing, perform hierarchical recovery
         await _orgRepository.syncFollowContext(uid, profile.activeFollowId!,
             userRemote: _userRemote);
@@ -329,7 +430,8 @@ class SyncEngine {
       var checkpoint = lastSync;
       await _database.transaction(() async {
         for (final record in delta) {
-          if (record.updatedAt != null && record.updatedAt!.isAfter(checkpoint)) {
+          if (record.updatedAt != null &&
+              record.updatedAt!.isAfter(checkpoint)) {
             checkpoint = record.updatedAt!;
           }
           if (record.organizationId == null || record.scopeId == null) continue;
@@ -338,6 +440,7 @@ class SyncEngine {
           final local = await _database.getAttendance(id);
           final pending = await _database.getOperation('attendance:$id');
           if (local?.pendingSync == true || pending != null) continue;
+          if (local?.protectedData != null && record.snapshot == null) continue;
           await _database.upsertAttendance(AttendanceTableCompanion.insert(
             id: id,
             organizationId: record.organizationId ?? 'unknown',
@@ -350,10 +453,34 @@ class SyncEngine {
             calendarVersionId: Value(record.calendarVersionId),
             pendingSync: const Value(false),
             updatedAt: record.updatedAt ?? DateTime.now(),
+            protectedData: Value(
+                record.snapshot == null && record.revisionId == null
+                    ? null
+                    : jsonEncode(record.toJson())),
           ));
         }
       });
       await _database.setLastSyncAt('attendance:$uid', checkpoint);
+      final contexts = await _database.select(_database.followRows).get();
+      for (final follow in contexts) {
+        if (!delta.any((r) =>
+            r.snapshot == null &&
+            r.organizationId == follow.organizationId &&
+            r.scopeId == follow.scopeId)) {
+          continue;
+        }
+        final state = await CalendarRepository(_database, _userRemote,
+                uid: uid, followId: follow.id)
+            .read();
+        if (state?.policy == null) continue;
+        await LocalFirstAttendanceRepository(_database,
+                uid: uid,
+                organizationId: follow.organizationId,
+                scopeId: follow.scopeId)
+            .protectHistory(state!.policy!, state.calendar,
+                policyFor: (date) => state.policyAt(date)!,
+                calendarFor: state.calendarAt);
+      }
     }
   }
 }

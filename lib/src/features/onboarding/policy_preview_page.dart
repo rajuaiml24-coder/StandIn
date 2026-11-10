@@ -45,21 +45,41 @@ class PolicyPreviewPage extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(org.name, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.w900, color: navy)),
+                Text(org.name,
+                    style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: navy)),
                 const SizedBox(height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.people_alt_outlined, color: orange, size: 20),
+                    const Icon(Icons.people_alt_outlined,
+                        color: orange, size: 20),
                     const SizedBox(width: 8),
-                    Text('${org.followerCount} ${org.followerCount == 1 ? "follower" : "followers"}', style: const TextStyle(color: navy, fontWeight: FontWeight.w800, fontSize: 15)),
+                    Text(
+                        '${org.followerCount} ${org.followerCount == 1 ? "follower" : "followers"}',
+                        style: const TextStyle(
+                            color: navy,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15)),
                     const SizedBox(width: 16),
-                    const Icon(Icons.person_outline, color: Color(0xFF667085), size: 18),
+                    const Icon(Icons.person_outline,
+                        color: Color(0xFF667085), size: 18),
                     const SizedBox(width: 4),
-                    Text('by ${org.anonymousCreatorId}', style: const TextStyle(color: Color(0xFF667085), fontWeight: FontWeight.w600, fontSize: 13)),
+                    Text('by ${org.anonymousCreatorId}',
+                        style: const TextStyle(
+                            color: Color(0xFF667085),
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13)),
                   ],
                 ),
                 const SizedBox(height: 32),
-                const Text('Attendance Rules', style: TextStyle(fontSize: 12, letterSpacing: 1, fontWeight: FontWeight.w800, color: Color(0xFF667085))),
+                const Text('Attendance Rules',
+                    style: TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 1,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF667085))),
                 const SizedBox(height: 12),
                 Container(
                   width: double.infinity,
@@ -71,42 +91,78 @@ class PolicyPreviewPage extends StatelessWidget {
                   child: Column(
                     children: [
                       if (effectiveTarget != null) ...[
-                        _PolicyRow(label: 'Target', value: '${effectiveTarget.toStringAsFixed(0)}%'),
+                        _PolicyRow(
+                            label: 'Target',
+                            value: '${effectiveTarget.toStringAsFixed(0)}%'),
                         const Divider(height: 32),
                       ],
-                      _PolicyRow(label: 'Calculation basis', value: effectiveBasis.name.toUpperCase()),
+                      _PolicyRow(
+                          label: 'Calculation basis',
+                          value: effectiveBasis.name.toUpperCase()),
                       const Divider(height: 32),
-                      _PolicyRow(label: 'Working days', value: _getWorkingDays(officialPolicy, calendar)),
+                      _PolicyRow(
+                          label: 'Working days',
+                          value: _getWorkingDays(officialPolicy, calendar)),
                       const Divider(height: 32),
-                      _PolicyRow(label: 'Weekly off', value: _getWeeklyOff(officialPolicy, calendar)),
+                      _PolicyRow(
+                          label: 'Weekly off',
+                          value: _getWeeklyOff(officialPolicy, calendar)),
                       const Divider(height: 32),
-                      _PolicyRow(label: 'Expected units', value: '${effectiveFullUnit.toStringAsFixed(1)} ${effectiveBasis.label(effectiveFullUnit)}/day'),
-                      if (effectiveStartDate != null && effectiveEndDate != null) ...[
+                      _PolicyRow(
+                          label: 'Expected units',
+                          value:
+                              '${effectiveFullUnit.toStringAsFixed(1)} ${effectiveBasis.label(effectiveFullUnit)}/day'),
+                      if (effectiveStartDate != null &&
+                          effectiveEndDate != null) ...[
                         const Divider(height: 32),
-                        _PolicyRow(label: 'Attendance period', value: _getPeriodText(effectiveStartDate, effectiveEndDate)),
+                        _PolicyRow(
+                            label: 'Attendance period',
+                            value: _getPeriodText(
+                                effectiveStartDate, effectiveEndDate)),
                       ],
                     ],
                   ),
                 ),
                 const SizedBox(height: 32),
-                const Text('Your Tracking Period', style: TextStyle(fontSize: 12, letterSpacing: 1, fontWeight: FontWeight.w800, color: Color(0xFF667085))),
+                const Text('Your Tracking Period',
+                    style: TextStyle(
+                        fontSize: 12,
+                        letterSpacing: 1,
+                        fontWeight: FontWeight.w800,
+                        color: Color(0xFF667085))),
                 const SizedBox(height: 12),
                 _PeriodSelection(controller: controller),
                 const SizedBox(height: 48),
                 if (controller.error != null)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 16),
-                    child: Text(controller.error!, style: const TextStyle(color: Colors.red, fontSize: 13)),
+                    child: Text(controller.error!,
+                        style:
+                            const TextStyle(color: Colors.red, fontSize: 13)),
                   ),
                 SizedBox(
                   width: double.infinity,
                   height: 64,
                   child: FilledButton(
-                    onPressed: controller.isLoading ? null : controller.useOfficialPolicy,
-                    style: FilledButton.styleFrom(backgroundColor: navy, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20))),
-                    child: controller.isLoading 
-                        ? const SizedBox(height: 24, width: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                        : const Text('Follow This Organization', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                    onPressed: controller.isLoading
+                        ? null
+                        : controller.useOfficialPolicy,
+                    style: FilledButton.styleFrom(
+                        backgroundColor: navy,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(20))),
+                    child: controller.isLoading
+                        ? const SizedBox(
+                            height: 24,
+                            width: 24,
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2))
+                        : Text(
+                            controller.selectedBranch == null
+                                ? 'Follow This Organization'
+                                : 'Follow This Group',
+                            style: const TextStyle(
+                                fontSize: 17, fontWeight: FontWeight.bold)),
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -117,9 +173,14 @@ class PolicyPreviewPage extends StatelessWidget {
                     onPressed: controller.goToCreateOrganization,
                     style: OutlinedButton.styleFrom(
                       side: const BorderSide(color: navy, width: 1.5),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20)),
                     ),
-                    child: const Text('Create New Organization', style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: navy)),
+                    child: const Text('Create New Organization',
+                        style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.bold,
+                            color: navy)),
                   ),
                 ),
               ],
@@ -130,16 +191,18 @@ class PolicyPreviewPage extends StatelessWidget {
     );
   }
 
-  String _getWorkingDays(AttendancePolicy? policy, AttendanceCalendar? calendar) {
+  String _getWorkingDays(
+      AttendancePolicy? policy, AttendanceCalendar? calendar) {
     final offs = calendar?.weeklyOffs ?? policy?.weeklyOffs ?? [7];
     if (offs.isEmpty) return 'Everyday';
     final days = [1, 2, 3, 4, 5, 6, 7];
     final working = days.where((d) => !offs.contains(d)).toList();
     if (working.length == 7) return 'Everyday';
     if (working.isEmpty) return 'None';
-    
+
     final dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    if (working.length > 3 && working.last - working.first == working.length - 1) {
+    if (working.length > 3 &&
+        working.last - working.first == working.length - 1) {
       return '${dayNames[working.first - 1]} – ${dayNames[working.last - 1]}';
     }
     return working.map((d) => dayNames[d - 1]).join(', ');
@@ -148,7 +211,15 @@ class PolicyPreviewPage extends StatelessWidget {
   String _getWeeklyOff(AttendancePolicy? policy, AttendanceCalendar? calendar) {
     final offs = calendar?.weeklyOffs ?? policy?.weeklyOffs ?? [7];
     if (offs.isEmpty) return 'None';
-    final dayNames = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    final dayNames = [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday'
+    ];
     return offs.map((d) => dayNames[d - 1]).join(', ');
   }
 
@@ -164,12 +235,16 @@ class _PolicyRow extends StatelessWidget {
   final String value;
   @override
   Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
-      Text(label, style: const TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF667085))),
-      Text(value, style: const TextStyle(fontWeight: FontWeight.w800, color: navy, fontSize: 16)),
-    ],
-  );
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w600, color: Color(0xFF667085))),
+          Text(value,
+              style: const TextStyle(
+                  fontWeight: FontWeight.w800, color: navy, fontSize: 16)),
+        ],
+      );
 }
 
 class _PeriodSelection extends StatelessWidget {
@@ -201,7 +276,9 @@ class _PeriodSelection extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(
-                    isSelected ? Icons.radio_button_checked : Icons.radio_button_off,
+                    isSelected
+                        ? Icons.radio_button_checked
+                        : Icons.radio_button_off,
                     color: isSelected ? Colors.white : const Color(0xFF98A2B3),
                     size: 20,
                   ),
